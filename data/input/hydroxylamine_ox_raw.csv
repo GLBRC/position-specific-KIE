@@ -1,0 +1,8 @@
+name,Organism,replicate,Time_min,N2O_conc_uM,delta_p,SP,delta_s0,N_s0
+time_0,NA,time_0,0,0,NA,NA,-2.3,3
+Mtrich_B_1,Methylosinus trichosporium,B,95,12.7,5.2,34.9,-2.3,3
+Mtrich_B_2,Methylosinus trichosporium,B,155,19.5,5,33.3,-2.3,3
+Mtrich_B_3,Methylosinus trichosporium,B,195,23.3,4.7,35.1,-2.3,3
+Mtrich_B_4,Methylosinus trichosporium,B,290,30.8,4.2,35,-2.3,3
+Mtrich_B_5,Methylosinus trichosporium,B,330,30.9,4.2,35,-2.3,3
+Mtrich_B_6,Methylosinus trichosporium,B,450,38,3.9,34.4,-2.3,3

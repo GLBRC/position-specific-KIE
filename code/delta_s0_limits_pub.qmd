@@ -1,0 +1,994 @@
+---
+title: "delta_s0_limits_pub"
+author: "Elise Rivett"
+date: "2023-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Goal: Determine the error associated with varying $\delta$~s0~ or $\epsilon$~N-bulk~ when using Mariotti's approximation of the Rayleigh equation.
+
+#Load packages:
+```{r load}
+library(tidyverse)
+library(ggplot2)
+library(nlstools)
+library(modelr) #provides rmse() function
+library(egg) #provides a way to save ggplots with specified sizes
+library(moments) #allows skewness and kurtosis calculations
+library(plotrix) #allows for standard error of the mean calculations
+library(sn) #This is a package that can generate skewed distributions.
+library(here) #Used to create file paths relative to top-level directory.
+```
+#Naming conventions and abbreviations
+
+Throughout this file, bulk N is abbreviated as "p" (for "product").
+For example, `delta_p` refers to $\delta$^15^N^bulk^.
+
+"Fractionation factor" (normally abbreviated as $\alpha$) is abbreviated as `ff` to avoid confusion with N^$\alpha$^.
+
+$\alpha$~N-bulk~ = `ff_p`
+
+$\alpha$~N-$\alpha$~ = `ff_alpha`
+
+$\alpha$~N-$\beta$~ = `ff_beta`
+
+Other Greek letters are spelled out in object names. For example:
+
+Enrichment factor ($\epsilon$) = `epsilon`
+
+Other abbreviations
+
+- lm    linear regression model
+
+- nls   nonlinear least square regression model
+
+- sd    standard deviation
+
+- se    standard error
+
+#Mariotti's approximation of the Rayleigh equation.
+
+The equations used in this paper to calculate $\epsilon$~N-bulk~, $\delta$^15^N^bulk^, and $\delta$^15^N^s^  were developed by Mariotti et al. (1981) using the following approximation:
+
+$$ln(({\delta}_s/1000 + 1)/({\delta}_{s0}/1000 +1)) ≈ {\delta_s} - {\delta}_{s0}$$
+Throughout this file, the above approximation is called "the ln(1+u) ≈ u approximation." (The variable u represents $\delta$~s~ or $\delta$~s0~.)
+
+This approximation was used by Mariotti and colleagues (1981) to develop Eq. (18):
+
+$${\delta}_{0} = {\delta}_{s0} + {\epsilon}_{N-bulk}*ln(f)$$
+and Eq. (2)
+
+$${\delta}_{bulk} = {\delta}_{s0} - {\epsilon}_{N-bulk}*fln(f)/(1-f)$$
+*Equations (2) and (18) can be used with $\delta$ values in permil.*
+
+#General strategy for assessing the error introduced by this approximation
+
+1. Calculate $\delta$ values without the ln(1+u) = u approximation.
+
+To calculate $\delta$~s~ without the ln(1+u) ≈ u approximation, use the following equation from Hayes, 2004 [Hayes Eq. 42]:
+
+$${\delta}_s = f^{{\epsilon}_{N-bulk}}({\delta}_{s0}+1)-1$$
+
+To calculate $\delta$~N-bulk~ without the ln(1+u) ≈ u approximation, the above equation defining $\delta$~s~ can be combined with the mass-balance equation  from Mariotti et al., 1981 [Mariotti Eq. 9]
+
+$$f{\delta}_s + (1-f){\delta}_{N-bulk} = {\delta}_{s0} $$
+yielding the following equation:
+
+$${\delta}_{N-bulk} = ({\delta}_{s0} - f(f^{{\epsilon}_{N-bulk}}({\delta}_{s0}+1) -1))/(1-f) $$
+
+*These equations for $\delta$~s~ and $\delta$~N-bulk~ require unitless $\delta$ values. Permil $\delta$ values can be converted to unitless $\delta$ values by dividing by 1000.*
+
+2. Calculate $\epsilon$~N-bulk~ without the ln(1+u) = u approximation (0.25 < f 0.75).
+
+Linear regression where y = ln(delta_s + 1), x = ln(f), and the slope = epsilon_bulk [Hayes Eq. 42] (Hayes, 2004):
+
+$$ln({\delta}_s+1) = ln({\delta}_{s0}+1) +{\epsilon}_{N-bulk}*ln(f)$$
+
+3. Calculate rho and tau using Expanded Rayleigh model 1 or 2.
+
+These calculations are the same with or without the approximation in question.
+
+4. Calculate ff_alpha and ff_beta without the ln(1+u) ≈ u approximation using $\rho$, $\tau$, and $\epsilon$~N-bulk~.
+
+5. Calculate $\epsilon$~N-bulk~ (epsilon_p_approx) with the ln(1+u) = u approximation (0.25 < f 0.75).
+
+Linear regression of Eq. (2) (see above), where y = delta_p and x = `-flnf/(1-f)`. The slope is equal to epsilon_bulk.
+
+6. Calculate ff_alpha and ff_beta *with* the ln(1+u) ≈ u approximation using $\rho$, $\tau$, and epsilon_p_approx.
+
+7. Calculate the absolute relative difference for each point estimate (epsilon, ff, KIE).
+
+$$abs.rel.diff = |(estimate - actual)/actual|$$
+
+##References
+
+Hayes, J. M.: An introduction to isotopic calculations, Woods Hole Oceanographic Institution, Woods Hole, MA 02543, USA, 2004.
+
+Mariotti, A., Germon, J. C., Hubert, P., Kaiser, P., Letolle, R., Tardieux, A., and Tardieux, P.: Experimental determination of nitrogen kinetic isotope fractionation: Some principles; illustration for the denitrification and nitrification processes, Plant Soil, 62, 413-430, 10.1007/BF02374138, 1981.
+
+#Make blank table to store the results of simulations with varied delta_s0.
+```{r blank_delta_s0_tb}
+#n = number of iterations (loops) =  number of delta_s0 values to test
+#m = number of models = 2 (Expanded Rayleigh 1, Expanded Rayleigh 2)
+
+blank_delta_s0_tb <- function(n, m) {
+  tibble(
+  delta_s0 = vector(length = n*m, mode = "numeric"),
+  
+  rho = vector(length = n*m, mode = "numeric"),
+  mean_tau = vector(length = n*m, mode = "numeric"),
+  
+  #Store values w/o ln(1+u) = u approximation
+  epsilon_p = vector(length = n*m, mode = "numeric"),
+  epsilon_alpha = vector(length = n*m, mode = "numeric"),
+  epsilon_beta = vector(length = n*m, mode = "numeric"),
+  
+  ff_p = vector(length = n*m, mode = "numeric"),
+  ff_alpha = vector(length = n*m, mode = "numeric"),
+  ff_beta = vector(length = n*m, mode = "numeric"),
+  
+  KIE_p = vector(length = n*m, mode = "numeric"),
+  KIE_alpha = vector(length = n*m, mode = "numeric"),
+  KIE_beta = vector(length = n*m, mode = "numeric"),
+  
+  #Store values with the ln(1+u) = u approximation
+  epsilon_p_approx = vector(length = n*m, mode = "numeric"),
+  epsilon_alpha_approx = vector(length = n*m, mode = "numeric"),
+  epsilon_beta_approx = vector(length = n*m, mode = "numeric"),
+  
+  ff_p_approx = vector(length = n*m, mode = "numeric"),
+  ff_alpha_approx = vector(length = n*m, mode = "numeric"),
+  ff_beta_approx = vector(length = n*m, mode = "numeric"),
+  
+  KIE_p_approx = vector(length = n*m, mode = "numeric"),
+  KIE_alpha_approx = vector(length = n*m, mode = "numeric"),
+  KIE_beta_approx = vector(length = n*m, mode = "numeric"), 
+  
+  mean_delta_check = vector(length = n*m, mode = "numeric"),
+  sd_delta_check = vector(length = n*m, mode = "numeric"),
+  
+  #Calculate the absolute relative difference for epsilon, ff,and KIE.
+  #abs. rel. diff. = |(est - true)/true|
+  abs_rel_diff_epsilon_p = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_epsilon_alpha = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_epsilon_beta = vector(length = n*m, mode = "numeric"),
+  
+  abs_rel_diff_ff_p = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_ff_alpha = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_ff_beta = vector(length = n*m, mode = "numeric"),
+  
+  abs_rel_diff_KIE_p = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_KIE_alpha = vector(length = n*m, mode = "numeric"),
+  abs_rel_diff_KIE_beta = vector(length = n*m, mode = "numeric") 
+  )
+}
+```
+
+
+#Test delta_s0 values ranging from -100 to 100. Epsilon_p is -20, and rho is 0.5050 (normal KIE_alpha, normal KIE_beta). Apply Expanded Rayleigh model 1 to determine KIE_alpha and KIE_beta.
+
+##Table S1 is a subset of this table.
+```{r data_test3}
+#Define nls1.2
+sim_formula_nls1.2 <- as.formula(delta_p ~ 0.5*(
+  (rho*`15N_p`/((0.5*N_p) - rho*`15N_p`)/R_std - 1)*1000 + 
+    delta_beta)
+  )
+
+#Make empty table to store the results. (The table will only have one row; it's just a test.)
+delta_s0 <- seq(from = -100, to = 100, by = 10)
+
+n = length(delta_s0)
+
+delta_s0_test3 <- blank_delta_s0_tb(n = length(delta_s0), m = 1)
+
+delta_s0_test3$delta_s0 = delta_s0
+
+for (i in 1:nrow(delta_s0_test3)) {
+
+  data_test2 <- tibble(
+  f = c(1, 0.999, 0.99, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,
+        0.2, 0.1),
+  delta_s0 = delta_s0_test3$delta_s0[i]
+  )
+  
+  data_test2 <- data_test2 %>% mutate(
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  epsilon_bulk = -20,
+  N_s0 = 10000,
+  R_std = 0.003663,
+  rho = 0.5050,
+  N_s = f*N_s0,
+  #Calculate delta_s and delta_p w/ the usual approx to double-check
+  delta_s_approx = delta_s0 + epsilon_bulk*log(f),
+  delta_p_approx = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)),
+  
+  #Convert to unitless delta_s0 and epsilon_bulk
+  delta_s0 = delta_s0/1000,
+  epsilon_bulk = epsilon_bulk/1000,
+  
+  #delta_s and delta_p calculated w/o ln(1+u) = u approximation
+  delta_s = f^epsilon_bulk*(delta_s0 + 1) - 1,
+  delta_p = (delta_s0 -f*(f^epsilon_bulk*(delta_s0 + 1) -1))/(1-f),
+  
+  #Convert delta_s0, delta_s, epsilon_bulk, and delta_p back to permil versions
+  delta_s0 = delta_s0*1000,
+  delta_s = delta_s*1000,
+  epsilon_bulk = epsilon_bulk*1000,
+  delta_p = delta_p*1000,
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+    ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+    KIE_p = 1000/(epsilon_bulk+1000),
+  
+  #instantaneous delta_p is approx. equal to delta_s + epsilon_bulk if epsilon_bulk is small relative to 1000
+  delta_p_i = delta_s + epsilon_bulk,
+  R_p_i = (delta_p_i/1000 + 1)*R_std,
+  
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`),
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  N_alpha_check = `15N_alpha` + `14N_alpha`,
+  tau = `14N_alpha`/`14N_p`,
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`),
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+  N_beta_check = `15N_beta` + `14N_beta`,
+  
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  #KIE = 1/ff = 1000/(epsilon +1000)
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  ff_beta = ((1-rho)/(1-mean(tau, na.rm = TRUE)))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000),
+  
+  
+  #Calculate delta_alpha and delta_beta values with the usual approximation
+  R_p_approx = (delta_p_approx/1000+1)*R_std,
+  `14N_p_approx` = N_p/(1 + R_p_approx),
+  `15N_p_approx` = R_p_approx*`14N_p_approx`,
+  R_alpha_approx = (rho*`15N_p_approx`)/(0.5*N_p - rho*`15N_p_approx`),
+  delta_alpha_approx = (R_alpha_approx/R_std - 1)*1000,
+  R_beta_approx = ((1 - rho)*`15N_p_approx`)/
+    (0.5*N_p - (1 - rho)*`15N_p_approx`),
+  delta_beta_approx = (R_beta_approx/R_std - 1)*1000,
+  
+  #Calculate epsilon_bulk (epsilon_p) without approximation.
+  epsilon_bulk_true = 1000*log((delta_s/1000 +1)/(delta_s0/1000 +1))/log(f),
+  
+#Calculate epsilon_bulk (epsilon_p) using Mariotti's approximation. This approx. assumes that delta_s/1000 and delta_s0/1000 are small relative to 1. When this assumption is true, log((delta_s/1000 +1)/(delta_s0/1000 +1)) can substituted with delta_s - delta_s0.
+  
+  epsilon_bulk_approx = (delta_s - delta_s0)/log(f),
+  
+  diff_delta_p = delta_p_approx - delta_p,
+  diff_delta_s = delta_s_approx - delta_s,
+  diff_delta_alpha = delta_alpha_approx - delta_alpha,
+  diff_delta_beta = delta_beta_approx - delta_beta
+  )
+ 
+  #Filter data_test2 to select for f values where 0.25 < f < 0.75. (Rename table so that the full range of delta values can still be graphed using data_test2.)
+  data <- filter(data_test2, f <= 0.75, f >= 0.25)
+  
+  #Store values in delta_s0_test3
+  delta_s0_test3$mean_tau[i] = mean(data$tau, na.rm = TRUE)
+  
+  delta_s0_test3$mean_delta_check[i] = mean(data$delta_check, na.rm = TRUE)
+  delta_s0_test3$sd_delta_check[i] = sd(data$delta_check, na.rm = TRUE)
+   
+ #Apply linear regression model to the data to find epsilon_bulk w/o the ln(1+u) = u approximation. x = ln(f), y = ln(delta_s/1000 +1), m = slope = epsilon_bulk. delta_s is divided by 1000 because this equation requires unitless delta values. The slope (epsilon_bulk) is also unitless.
+  lm_delta_p <- lm(log(delta_s/1000 + 1) ~ log(f), data = data)
+  
+  delta_s0_test3$epsilon_p[i] <- (summary(lm_delta_p)$coefficients[2,1])*1000
+  delta_s0_test3$ff_p[i] <- as.numeric(1 + lm_delta_p$coefficients[2])
+  delta_s0_test3$KIE_p[i] <- 1/delta_s0_test3$ff_p[i]
+  
+  #Apply nls1.2 to determine rho.
+  nls1.2 <- nls(sim_formula_nls1.2, data = data,
+                      start = list(rho = 0.500))
+  
+  delta_s0_test3$rho[i] = coef(nls1.2)
+  
+  delta_s0_test3$ff_alpha[i] =
+    (coef(nls1.2)/mean(data$tau, na.rm = TRUE))*delta_s0_test3$ff_p[i]
+  
+  delta_s0_test3$epsilon_alpha[i] = 1000*(delta_s0_test3$ff_alpha[i] - 1)
+  
+  delta_s0_test3$KIE_alpha[i] = 1000/(delta_s0_test3$epsilon_alpha[i] + 1000)
+  
+  delta_s0_test3$ff_beta[i] = 
+    (1-coef(nls1.2))/(1-mean(data$tau, na.rm = TRUE))*delta_s0_test3$ff_p[i]
+  
+  delta_s0_test3$epsilon_beta[i] = 1000*(delta_s0_test3$ff_beta[i] - 1)
+  
+  delta_s0_test3$KIE_beta[i] = 1000/(delta_s0_test3$epsilon_beta[i] + 1000)
+  
+  #Apply Expanded Rayleigh model w/ the ln(1+u) = u approximation, where x = -flnf/(1-f) and y = delta_p. rho = coef(nls1.2)
+  lm_delta_p_approx <- lm(delta_p ~ `-flnf/(1-f)`, data = data)
+  
+  delta_s0_test3$epsilon_p_approx[i] <- (summary(lm_delta_p_approx)$coefficients[2,1])
+  
+  delta_s0_test3$ff_p_approx[i] <- 
+    as.numeric(1 + lm_delta_p_approx$coefficients[2]/1000)
+  
+  delta_s0_test3$KIE_p_approx[i] <- 1/delta_s0_test3$ff_p_approx[i]
+  
+  delta_s0_test3$ff_alpha_approx[i] = 
+    (coef(nls1.2)/mean(data$tau, na.rm = TRUE))*delta_s0_test3$ff_p_approx[i]
+  
+  delta_s0_test3$epsilon_alpha_approx[i] = 1000*(delta_s0_test3$ff_alpha_approx[i] - 1)
+  
+  delta_s0_test3$KIE_alpha_approx[i] = 1000/(delta_s0_test3$epsilon_alpha_approx[i] + 1000)
+  
+  delta_s0_test3$ff_beta_approx[i] = 
+    (1-coef(nls1.2))/(1-mean(data$tau, na.rm = TRUE))*delta_s0_test3$ff_p_approx[i]
+  
+  delta_s0_test3$epsilon_beta_approx[i] = 1000*(delta_s0_test3$ff_beta_approx[i] - 1)
+  
+  delta_s0_test3$KIE_beta_approx[i] = 1000/(delta_s0_test3$epsilon_beta_approx[i] + 1000)
+  
+  
+  #Calculate the absolute relative difference for epsilon, ff,and KIE.
+  #abs. rel. diff. = |(est - true)/true|
+  delta_s0_test3$abs_rel_diff_epsilon_p[i] = 
+    abs((delta_s0_test3$epsilon_p_approx[i] - delta_s0_test3$epsilon_p[i])/ delta_s0_test3$epsilon_p[i])
+  
+  delta_s0_test3$abs_rel_diff_epsilon_alpha[i] = 
+    abs((delta_s0_test3$epsilon_alpha_approx[i] - delta_s0_test3$epsilon_alpha[i])/ delta_s0_test3$epsilon_alpha[i])
+  
+  delta_s0_test3$abs_rel_diff_epsilon_beta[i] = 
+    abs((delta_s0_test3$epsilon_beta_approx[i] - delta_s0_test3$epsilon_beta[i])/ delta_s0_test3$epsilon_beta[i])
+    
+  delta_s0_test3$abs_rel_diff_ff_p[i] = 
+    abs((delta_s0_test3$ff_p_approx[i] - delta_s0_test3$ff_p[i])/ delta_s0_test3$ff_p[i])
+  
+  delta_s0_test3$abs_rel_diff_ff_alpha[i] = 
+    abs((delta_s0_test3$ff_alpha_approx[i] - delta_s0_test3$ff_alpha[i])/ delta_s0_test3$ff_alpha[i])
+  
+  delta_s0_test3$abs_rel_diff_ff_beta[i] = 
+    abs((delta_s0_test3$ff_beta_approx[i] - delta_s0_test3$ff_beta[i])/ delta_s0_test3$ff_beta[i])    
+  
+  delta_s0_test3$abs_rel_diff_KIE_p[i] = 
+    abs((delta_s0_test3$KIE_p_approx[i] - delta_s0_test3$KIE_p[i])/ delta_s0_test3$KIE_p[i])
+  
+  delta_s0_test3$abs_rel_diff_KIE_alpha[i] = 
+    abs((delta_s0_test3$KIE_alpha_approx[i] - delta_s0_test3$KIE_alpha[i])/ delta_s0_test3$KIE_alpha[i])
+  
+  delta_s0_test3$abs_rel_diff_KIE_beta[i] = 
+    abs((delta_s0_test3$KIE_beta_approx[i] - delta_s0_test3$KIE_beta[i])/ delta_s0_test3$KIE_beta[i])  
+}
+
+
+#Save results
+write.csv(delta_s0_test3, here("data/output/delta_s0_limits/delta_s0_test3.csv"), row.names = TRUE)
+```
+
+#Test delta_s0 values ranging from -100 to 100. Epsilon_p is -20, rho is 0.5050 (normal KIE_alpha, normal KIE_beta). Apply Expanded Rayleigh model 2 to determine KIE_alpha and KIE_beta.
+```{r data_test4}
+#Define formula: Nls2.2 uses N_p instead of (1-f)*N_s0
+sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
+  delta_alpha +
+  ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
+  )
+
+
+#Make empty table to store the results. (The table will only have one row; it's just a test.)
+delta_s0 <- seq(from = -100, to = 100, by = 10)
+
+n = length(delta_s0)
+
+delta_s0_test4 <- blank_delta_s0_tb(n = length(delta_s0), m = 1)
+
+delta_s0_test4$delta_s0 = delta_s0
+
+for (i in 1:nrow(delta_s0_test4)) {
+
+  data_test2 <- tibble(
+  f = c(1, 0.999, 0.99, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,
+        0.2, 0.1),
+  delta_s0 = delta_s0_test4$delta_s0[i]
+  )
+  
+  data_test2 <- data_test2 %>% mutate(
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  epsilon_bulk = -20,
+  N_s0 = 10000,
+  R_std = 0.003663,
+  rho = 0.5050,
+  N_s = f*N_s0,
+  #Calculate delta_s and delta_p w/ the usual approx to double-check
+  delta_s_approx = delta_s0 + epsilon_bulk*log(f),
+  delta_p_approx = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)),
+  
+  #Convert to unitless delta_s0 and epsilon_bulk
+  delta_s0 = delta_s0/1000,
+  epsilon_bulk = epsilon_bulk/1000,
+  #delta_s and delta_p calculated w/o ln(1+u) = u approximation
+  delta_s = f^epsilon_bulk*(delta_s0 + 1) - 1,
+  delta_p = (delta_s0 -f*(f^epsilon_bulk*(delta_s0 + 1) -1))/(1-f),
+  #Convert delta_s0, delta_s, epsilon_bulk, and delta_p back to permil versions
+  delta_s0 = delta_s0*1000,
+  delta_s = delta_s*1000,
+  epsilon_bulk = epsilon_bulk*1000,
+  delta_p = delta_p*1000,
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+    ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+    KIE_p = 1000/(epsilon_bulk+1000),
+  #instantaneous delta_p is approx. equal to delta_s + epsilon_bulk if epsilon_bulk is small relative to 1000
+  delta_p_i = delta_s + epsilon_bulk,
+  R_p_i = (delta_p_i/1000 + 1)*R_std,
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`),
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  N_alpha_check = `15N_alpha` + `14N_alpha`,
+  tau = `14N_alpha`/`14N_p`,
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`),
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+  N_beta_check = `15N_beta` + `14N_beta`,
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  #KIE = 1/ff = 1000/(epsilon +1000)
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  ff_beta = ((1-rho)/(1-mean(tau, na.rm = TRUE)))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000),
+  
+  tau_2 = (1 + 2*rho - sqrt((-1 -2*rho)^2 - 8*rho))/4,
+  
+  #Calculate delta_alpha and delta_beta values with the usual approximation
+  R_p_approx = (delta_p_approx/1000+1)*R_std,
+  `14N_p_approx` = N_p/(1 + R_p_approx),
+  `15N_p_approx` = R_p_approx*`14N_p_approx`,
+  R_alpha_approx = (rho*`15N_p_approx`)/(0.5*N_p - rho*`15N_p_approx`),
+  delta_alpha_approx = (R_alpha_approx/R_std - 1)*1000,
+  R_beta_approx = ((1 - rho)*`15N_p_approx`)/
+    (0.5*N_p - (1 - rho)*`15N_p_approx`),
+  delta_beta_approx = (R_beta_approx/R_std - 1)*1000,
+  
+  #Calculate epsilon_bulk (epsilon_p) without approximation.
+  epsilon_bulk_true = 1000*log((delta_s/1000 +1)/(delta_s0/1000 +1))/log(f),
+  
+#Calculate epsilon_bulk (epsilon_p) using Mariotti's approximation. This approx. assumes that delta_s/1000 and delta_s0/1000 are small relative to 1. When this assumption is true, log((delta_s/1000 +1)/(delta_s0/1000 +1)) can substituted with delta_s - delta_s0.
+  
+  epsilon_bulk_approx = (delta_s - delta_s0)/log(f),
+  
+  diff_delta_p = delta_p_approx - delta_p,
+  diff_delta_s = delta_s_approx - delta_s,
+  diff_delta_alpha = delta_alpha_approx - delta_alpha,
+  diff_delta_beta = delta_beta_approx - delta_beta
+  )
+ 
+  #Filter data_test2 by to select for f values where 0.25 < f < 0.75. (Rename table so that the full range of delta values can still be graphed using data_test2.)
+  data <- filter(data_test2, f <= 0.75, f >= 0.25)
+  
+  #Store values in delta_s0_test4
+  delta_s0_test4$mean_tau[i] = mean(data$tau, na.rm = TRUE)
+  
+  delta_s0_test4$mean_delta_check[i] = mean(data$delta_check, na.rm = TRUE)
+  delta_s0_test4$sd_delta_check[i] = sd(data$delta_check, na.rm = TRUE)
+   
+ #Apply linear regression model to the data to find epsilon_bulk w/o the ln(1+u) = u approximation. x = ln(f), y = ln(delta_s/1000 +1), m = slope = epsilon_bulk. delta_s is divided by 1000 because this equation requires unitless delta values. The slope (epsilon_bulk) is also unitless.
+  lm_delta_p <- lm(log(delta_s/1000 + 1) ~ log(f), data = data)
+  
+  delta_s0_test4$epsilon_p[i] <- (summary(lm_delta_p)$coefficients[2,1])*1000
+  delta_s0_test4$ff_p[i] <- as.numeric(1 + lm_delta_p$coefficients[2])
+  delta_s0_test4$KIE_p[i] <- 1/delta_s0_test4$ff_p[i]
+  
+  #Apply nls2.2 to determine rho.
+  nls2.2 <- nls(sim_formula_nls2.2, data = data,
+                      start = list(rho = 0.500))
+  
+  delta_s0_test4$rho[i] = coef(nls2.2)
+  
+  delta_s0_test4$ff_alpha[i] = 
+    (coef(nls2.2)/mean(data$tau, na.rm = TRUE))*delta_s0_test4$ff_p[i]
+  delta_s0_test4$epsilon_alpha[i] = 1000*(delta_s0_test4$ff_alpha[i] - 1)
+  delta_s0_test4$KIE_alpha[i] = 1000/(delta_s0_test4$epsilon_alpha[i] + 1000)
+  
+  delta_s0_test4$ff_beta[i] = 
+    (1-coef(nls2.2))/(1-mean(data$tau, na.rm = TRUE))*delta_s0_test4$ff_p[i]
+  delta_s0_test4$epsilon_beta[i] = 1000*(delta_s0_test4$ff_beta[i] - 1)
+  delta_s0_test4$KIE_beta[i] = 1000/(delta_s0_test4$epsilon_beta[i] + 1000)
+  
+  #Apply standard Rayleigh model w/ the ln(1+u) = u approximation, where x = -flnf/(1-f) and y = delta_p. rho = coef(nls2.2)
+  lm_delta_p_approx <- lm(delta_p ~ `-flnf/(1-f)`, data = data)
+  
+  delta_s0_test4$epsilon_p_approx[i] <- (summary(lm_delta_p_approx)$coefficients[2,1])
+  delta_s0_test4$ff_p_approx[i] <- 
+    as.numeric(1 + lm_delta_p_approx$coefficients[2]/1000)
+  delta_s0_test4$KIE_p_approx[i] <- 1/delta_s0_test4$ff_p_approx[i]
+  
+  delta_s0_test4$ff_alpha_approx[i] = 
+    (coef(nls2.2)/mean(data$tau, na.rm = TRUE))*delta_s0_test4$ff_p_approx[i]
+  delta_s0_test4$epsilon_alpha_approx[i] = 1000*(delta_s0_test4$ff_alpha_approx[i] - 1)
+  delta_s0_test4$KIE_alpha_approx[i] = 1000/(delta_s0_test4$epsilon_alpha_approx[i] + 1000)
+  
+  delta_s0_test4$ff_beta_approx[i] = 
+    (1-coef(nls2.2))/(1-mean(data$tau, na.rm = TRUE))*delta_s0_test4$ff_p_approx[i]
+  delta_s0_test4$epsilon_beta_approx[i] = 1000*(delta_s0_test4$ff_beta_approx[i] - 1)
+  delta_s0_test4$KIE_beta_approx[i] = 1000/(delta_s0_test4$epsilon_beta_approx[i] + 1000)
+  
+    #Calculate the absolute difference: |(est - true)| for epsilon (will be in per mil)
+  delta_s0_test4$abs_diff_epsilon_p[i] = 
+    abs(delta_s0_test4$epsilon_p_approx[i] - delta_s0_test4$epsilon_p[i])
+  delta_s0_test4$abs_diff_epsilon_alpha[i] = 
+    abs(delta_s0_test4$epsilon_alpha_approx[i] - delta_s0_test4$epsilon_alpha[i])
+  delta_s0_test4$abs_diff_epsilon_beta[i] = 
+    abs(delta_s0_test4$epsilon_beta_approx[i] - delta_s0_test4$epsilon_beta[i])
+  
+  #Calculate the absolute relative difference for epsilon, ff,and KIE.
+  #abs. rel. diff. = |(est - true)/true|
+  delta_s0_test4$abs_rel_diff_epsilon_p[i] = 
+    abs((delta_s0_test4$epsilon_p_approx[i] - delta_s0_test4$epsilon_p[i])/ delta_s0_test4$epsilon_p[i])
+  
+  delta_s0_test4$abs_rel_diff_epsilon_alpha[i] = 
+    abs((delta_s0_test4$epsilon_alpha_approx[i] - delta_s0_test4$epsilon_alpha[i])/ delta_s0_test4$epsilon_alpha[i])
+  
+  delta_s0_test4$abs_rel_diff_epsilon_beta[i] = 
+    abs((delta_s0_test4$epsilon_beta_approx[i] - delta_s0_test4$epsilon_beta[i])/ delta_s0_test4$epsilon_beta[i])
+    
+  delta_s0_test4$abs_rel_diff_ff_p[i] = 
+    abs((delta_s0_test4$ff_p_approx[i] - delta_s0_test4$ff_p[i])/ delta_s0_test4$ff_p[i])
+  
+  delta_s0_test4$abs_rel_diff_ff_alpha[i] = 
+    abs((delta_s0_test4$ff_alpha_approx[i] - delta_s0_test4$ff_alpha[i])/ delta_s0_test4$ff_alpha[i])
+  
+  delta_s0_test4$abs_rel_diff_ff_beta[i] = 
+    abs((delta_s0_test4$ff_beta_approx[i] - delta_s0_test4$ff_beta[i])/ delta_s0_test4$ff_beta[i])    
+  
+  delta_s0_test4$abs_rel_diff_KIE_p[i] = 
+    abs((delta_s0_test4$KIE_p_approx[i] - delta_s0_test4$KIE_p[i])/ delta_s0_test4$KIE_p[i])
+  
+  delta_s0_test4$abs_rel_diff_KIE_alpha[i] = 
+    abs((delta_s0_test4$KIE_alpha_approx[i] - delta_s0_test4$KIE_alpha[i])/ delta_s0_test4$KIE_alpha[i])
+  
+  delta_s0_test4$abs_rel_diff_KIE_beta[i] = 
+    abs((delta_s0_test4$KIE_beta_approx[i] - delta_s0_test4$KIE_beta[i])/ delta_s0_test4$KIE_beta[i])  
+}
+
+#Save results
+write.csv(delta_s0_test4, here("data/output/delta_s0_limits/delta_s0_test4.csv"), row.names = TRUE)
+```
+
+#Test epsilon_p values ranging from -100 to 100. delta_s0 is 0, and rho is 0.5050 (normal KIE_alpha, normal KIE_beta). Apply Expanded Rayleigh model 1 to determine KIE_alpha and KIE_beta.
+
+##Table S2 is a subset of this table
+
+Can't use epsilon_p = 0.
+```{r epsilon_test2}
+#Define nls1.2
+sim_formula_nls1.2 <- as.formula(delta_p ~ 0.5*(
+  (rho*`15N_p`/((0.5*N_p) - rho*`15N_p`)/R_std - 1)*1000 + 
+    delta_beta)
+  )
+
+#epsilon_p <- seq(from = -20, to = 20, by = 10)
+epsilon_p <- c(seq(from = -100, to = -10, by = 10), seq(from = 10, to = 100, by = 10))
+
+#epsilon_p <- -100
+
+n = length(epsilon_p)
+
+epsilon_test2 <- blank_delta_s0_tb(n = n, m = 1)
+
+epsilon_test2$epsilon_p = epsilon_p
+
+for (i in 1:nrow(epsilon_test2)) {
+
+  data_test4 <- tibble(
+  f = c(1, 0.999, 0.99, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,
+        0.2, 0.1),
+  epsilon_p = epsilon_test2$epsilon_p[i]
+  )
+  
+  data_test4 <- data_test4 %>% mutate(
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  delta_s0 = 0,
+  N_s0 = 10000,
+  R_std = 0.003663,
+  rho = 0.5050,
+  N_s = f*N_s0,
+  #Calculate delta_s and delta_p w/ the usual approx to double-check
+  delta_s_approx = delta_s0 + epsilon_p*log(f),
+  delta_p_approx = delta_s0 - epsilon_p*(f*log(f)/(1 - f)),
+  
+  #Convert to unitless delta_s0 and epsilon_p
+  delta_s0 = delta_s0/1000,
+  epsilon_p = epsilon_p/1000,
+  #delta_s and delta_p calculated w/o ln(1+u) = u approximation
+  delta_s = f^epsilon_p*(delta_s0 + 1) - 1,
+  delta_p = (delta_s0 -f*(f^epsilon_p*(delta_s0 + 1) -1))/(1-f),
+  #Convert delta_s0, delta_s, epsilon_p, and delta_p back to permil versions
+  delta_s0 = delta_s0*1000,
+  delta_s = delta_s*1000,
+  epsilon_p = epsilon_p*1000,
+  delta_p = delta_p*1000,
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_p/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_p+1000),
+  #instantaneous delta_p is approx. equal to delta_s + epsilon_p if epsilon_p is small relative to 1000
+  delta_p_i = delta_s + epsilon_p,
+  R_p_i = (delta_p_i/1000 + 1)*R_std,
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`),
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  N_alpha_check = `15N_alpha` + `14N_alpha`,
+  tau = `14N_alpha`/`14N_p`,
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`),
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+  N_beta_check = `15N_beta` + `14N_beta`,
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  #KIE = 1/ff = 1000/(epsilon +1000)
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  ff_beta = ((1-rho)/(1-mean(tau, na.rm = TRUE)))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000),
+  
+  tau_2 = (1 + 2*rho - sqrt((-1 -2*rho)^2 - 8*rho))/4,
+  
+  #Calculate delta_alpha and delta_beta values with the usual approximation
+  R_p_approx = (delta_p_approx/1000+1)*R_std,
+  `14N_p_approx` = N_p/(1 + R_p_approx),
+  `15N_p_approx` = R_p_approx*`14N_p_approx`,
+  R_alpha_approx = (rho*`15N_p_approx`)/(0.5*N_p - rho*`15N_p_approx`),
+  delta_alpha_approx = (R_alpha_approx/R_std - 1)*1000,
+  R_beta_approx = ((1 - rho)*`15N_p_approx`)/
+    (0.5*N_p - (1 - rho)*`15N_p_approx`),
+  delta_beta_approx = (R_beta_approx/R_std - 1)*1000,
+  
+  #Calculate epsilon_p (epsilon_p) without approximation.
+  epsilon_p_true = 1000*log((delta_s/1000 +1)/(delta_s0/1000 +1))/log(f),
+  
+#Calculate epsilon_p (epsilon_p) using Mariotti's approximation. This approx. assumes that delta_s/1000 and delta_s0/1000 are small relative to 1. When this assumption is true, log((delta_s/1000 +1)/(delta_s0/1000 +1)) can substituted with delta_s - delta_s0.
+  
+  epsilon_p_approx = (delta_s - delta_s0)/log(f),
+  
+  diff_delta_p = delta_p_approx - delta_p,
+  diff_delta_s = delta_s_approx - delta_s,
+  diff_delta_alpha = delta_alpha_approx - delta_alpha,
+  diff_delta_beta = delta_beta_approx - delta_beta
+  )
+ 
+  #Filter data_test4 by to select for f values where 0.25 < f < 0.75. (Rename table so that the full range of delta values can still be graphed using data_test4.)
+  data <- filter(data_test4, f <= 0.75, f >= 0.25) %>% select(-rho)
+  
+  #Store values in epsilon_test2
+  epsilon_test2$mean_tau[i] = mean(data$tau, na.rm = TRUE)
+  
+  epsilon_test2$mean_delta_check[i] = mean(data$delta_check, na.rm = TRUE)
+  epsilon_test2$sd_delta_check[i] = sd(data$delta_check, na.rm = TRUE)
+   
+ #Apply linear regression model to the data to find epsilon_p w/o the ln(1+u) = u approximation. x = ln(f), y = ln(delta_s/1000 +1), m = slope = epsilon_p. delta_s is divided by 1000 because this equation requires unitless delta values. The slope (epsilon_p) is also unitless.
+  lm_delta_p <- lm(log(delta_s/1000 + 1) ~ log(f), data = data)
+  
+  epsilon_test2$epsilon_p[i] <- (summary(lm_delta_p)$coefficients[2,1])*1000
+  epsilon_test2$ff_p[i] <- as.numeric(1 + lm_delta_p$coefficients[2])
+  epsilon_test2$KIE_p[i] <- 1/epsilon_test2$ff_p[i]
+  
+  #Apply nls1.2 to determine rho.
+  nls1.2 <- nls(sim_formula_nls1.2, data = data,
+                      start = list(rho = 0.500))
+  
+  epsilon_test2$rho[i] = coef(nls1.2)  
+  
+  epsilon_test2$ff_alpha[i] = 
+    (coef(nls1.2)/mean(data$tau, na.rm = TRUE))*epsilon_test2$ff_p[i]
+  epsilon_test2$epsilon_alpha[i] = 1000*(epsilon_test2$ff_alpha[i] - 1)
+  epsilon_test2$KIE_alpha[i] = 1000/(epsilon_test2$epsilon_alpha[i] + 1000)
+  
+  epsilon_test2$ff_beta[i] = 
+    (1-coef(nls1.2))/(1-mean(data$tau, na.rm = TRUE))*epsilon_test2$ff_p[i]
+  epsilon_test2$epsilon_beta[i] = 1000*(epsilon_test2$ff_beta[i] - 1)
+  epsilon_test2$KIE_beta[i] = 1000/(epsilon_test2$epsilon_beta[i] + 1000)
+  
+  #Apply standard Rayleigh model w/ the ln(1+u) = u approximation, where x = -flnf/(1-f) and y = delta_p
+  lm_delta_p_approx <- lm(delta_p ~ `-flnf/(1-f)`, data = data)
+  
+  epsilon_test2$epsilon_p_approx[i] <- (summary(lm_delta_p_approx)$coefficients[2,1])
+  epsilon_test2$ff_p_approx[i] <- 
+    as.numeric(1 + lm_delta_p_approx$coefficients[2]/1000)
+  epsilon_test2$KIE_p_approx[i] <- 1/epsilon_test2$ff_p_approx[i]
+  
+  epsilon_test2$ff_alpha_approx[i] = 
+    (coef(nls1.2)/mean(data$tau, na.rm = TRUE))*epsilon_test2$ff_p_approx[i]
+  epsilon_test2$epsilon_alpha_approx[i] = 1000*(epsilon_test2$ff_alpha_approx[i] - 1)
+  epsilon_test2$KIE_alpha_approx[i] = 1000/(epsilon_test2$epsilon_alpha_approx[i] + 1000)
+  
+  epsilon_test2$ff_beta_approx[i] = 
+    (1-coef(nls1.2))/(1-mean(data$tau, na.rm = TRUE))*epsilon_test2$ff_p_approx[i]
+  epsilon_test2$epsilon_beta_approx[i] = 1000*(epsilon_test2$ff_beta_approx[i] - 1)
+  epsilon_test2$KIE_beta_approx[i] = 1000/(epsilon_test2$epsilon_beta_approx[i] + 1000)
+  
+    #Calculate the absolute difference: |(est - true)| for epsilon (will be in per mil)
+  epsilon_test2$abs_diff_epsilon_p[i] = 
+    abs(epsilon_test2$epsilon_p_approx[i] - epsilon_test2$epsilon_p[i])
+  epsilon_test2$abs_diff_epsilon_alpha[i] = 
+    abs(epsilon_test2$epsilon_alpha_approx[i] - epsilon_test2$epsilon_alpha[i])
+  epsilon_test2$abs_diff_epsilon_beta[i] = 
+    abs(epsilon_test2$epsilon_beta_approx[i] - epsilon_test2$epsilon_beta[i])
+  
+  #Calculate the absolute relative difference for epsilon, ff,and KIE.
+  #abs. rel. diff. = |(est - true)/true|
+  epsilon_test2$abs_rel_diff_epsilon_p[i] = 
+    abs((epsilon_test2$epsilon_p_approx[i] - epsilon_test2$epsilon_p[i])/ epsilon_test2$epsilon_p[i])
+  
+  epsilon_test2$abs_rel_diff_epsilon_alpha[i] = 
+    abs((epsilon_test2$epsilon_alpha_approx[i] - epsilon_test2$epsilon_alpha[i])/ epsilon_test2$epsilon_alpha[i])
+  
+  epsilon_test2$abs_rel_diff_epsilon_beta[i] = 
+    abs((epsilon_test2$epsilon_beta_approx[i] - epsilon_test2$epsilon_beta[i])/ epsilon_test2$epsilon_beta[i])
+    
+  epsilon_test2$abs_rel_diff_ff_p[i] = 
+    abs((epsilon_test2$ff_p_approx[i] - epsilon_test2$ff_p[i])/ epsilon_test2$ff_p[i])
+  
+  epsilon_test2$abs_rel_diff_ff_alpha[i] = 
+    abs((epsilon_test2$ff_alpha_approx[i] - epsilon_test2$ff_alpha[i])/ epsilon_test2$ff_alpha[i])
+  
+  epsilon_test2$abs_rel_diff_ff_beta[i] = 
+    abs((epsilon_test2$ff_beta_approx[i] - epsilon_test2$ff_beta[i])/ epsilon_test2$ff_beta[i])    
+  
+  epsilon_test2$abs_rel_diff_KIE_p[i] = 
+    abs((epsilon_test2$KIE_p_approx[i] - epsilon_test2$KIE_p[i])/ epsilon_test2$KIE_p[i])
+  
+  epsilon_test2$abs_rel_diff_KIE_alpha[i] = 
+    abs((epsilon_test2$KIE_alpha_approx[i] - epsilon_test2$KIE_alpha[i])/ epsilon_test2$KIE_alpha[i])
+  
+  epsilon_test2$abs_rel_diff_KIE_beta[i] = 
+    abs((epsilon_test2$KIE_beta_approx[i] - epsilon_test2$KIE_beta[i])/ epsilon_test2$KIE_beta[i])  
+}
+
+#Compare input epsilon_p values to "actual" epsilon_p values obtained by linear regression of ln(delta_s/1000 +1) against ln(f).
+(epsilon_p - epsilon_test2$epsilon_p)
+
+#Add results to epsilon_test2
+epsilon_test2$epsilon_p_check = (epsilon_p - epsilon_test2$epsilon_p)
+
+#Save results
+write.csv(epsilon_test2, here("data/output/delta_s0_limits/epsilon_test2.csv"), row.names = TRUE)
+```
+
+#Test epsilon_p values ranging from -100 to 100. delta_s0 is 0, and rho is 0.5050 (normal KIE_alpha, normal KIE_beta). Apply Expanded Rayleigh model 2 to determine KIE_alpha and KIE_beta.
+
+Can't use epsilon_p = 0.
+```{r epsilon_test3}
+#Define formula: Nls2.2 uses N_p instead of (1-f)*N_s0
+sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
+  delta_alpha +
+  ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
+  )
+
+#epsilon_p <- seq(from = -20, to = 20, by = 10)
+epsilon_p <- c(seq(from = -100, to = -10, by = 10), seq(from = 10, to = 100, by = 10))
+
+#epsilon_p <- -100
+
+n = length(epsilon_p)
+
+epsilon_test3 <- blank_delta_s0_tb(n = n, m = 1)
+
+epsilon_test3$epsilon_p = epsilon_p
+
+for (i in 1:nrow(epsilon_test3)) {
+
+  data_test5 <- tibble(
+  f = c(1, 0.999, 0.99, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,
+        0.2, 0.1),
+  epsilon_p = epsilon_test3$epsilon_p[i]
+  )
+  
+  data_test5 <- data_test5 %>% mutate(
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  delta_s0 = 0,
+  N_s0 = 10000,
+  R_std = 0.003663,
+  rho = 0.5050,
+  N_s = f*N_s0,
+  #Calculate delta_s and delta_p w/ the usual approx to double-check
+  delta_s_approx = delta_s0 + epsilon_p*log(f),
+  delta_p_approx = delta_s0 - epsilon_p*(f*log(f)/(1 - f)),
+  
+  #Convert to unitless delta_s0 and epsilon_p
+  delta_s0 = delta_s0/1000,
+  epsilon_p = epsilon_p/1000,
+  #delta_s and delta_p calculated w/o ln(1+u) = u approximation
+  delta_s = f^epsilon_p*(delta_s0 + 1) - 1,
+  delta_p = (delta_s0 -f*(f^epsilon_p*(delta_s0 + 1) -1))/(1-f),
+  #Convert delta_s0, delta_s, epsilon_p, and delta_p back to permil versions
+  delta_s0 = delta_s0*1000,
+  delta_s = delta_s*1000,
+  epsilon_p = epsilon_p*1000,
+  delta_p = delta_p*1000,
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_p/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_p+1000),
+  #instantaneous delta_p is approx. equal to delta_s + epsilon_p if epsilon_p is small relative to 1000
+  delta_p_i = delta_s + epsilon_p,
+  R_p_i = (delta_p_i/1000 + 1)*R_std,
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`),
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  N_alpha_check = `15N_alpha` + `14N_alpha`,
+  tau = `14N_alpha`/`14N_p`,
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`),
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+  N_beta_check = `15N_beta` + `14N_beta`,
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  #KIE = 1/ff = 1000/(epsilon +1000)
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  ff_beta = ((1-rho)/(1-mean(tau, na.rm = TRUE)))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000),
+  
+  tau_2 = (1 + 2*rho - sqrt((-1 -2*rho)^2 - 8*rho))/4,
+  
+  #Calculate delta_alpha and delta_beta values with the usual approximation
+  R_p_approx = (delta_p_approx/1000+1)*R_std,
+  `14N_p_approx` = N_p/(1 + R_p_approx),
+  `15N_p_approx` = R_p_approx*`14N_p_approx`,
+  R_alpha_approx = (rho*`15N_p_approx`)/(0.5*N_p - rho*`15N_p_approx`),
+  delta_alpha_approx = (R_alpha_approx/R_std - 1)*1000,
+  R_beta_approx = ((1 - rho)*`15N_p_approx`)/
+    (0.5*N_p - (1 - rho)*`15N_p_approx`),
+  delta_beta_approx = (R_beta_approx/R_std - 1)*1000,
+  
+  #Calculate epsilon_p (epsilon_p) without approximation.
+  epsilon_p_true = 1000*log((delta_s/1000 +1)/(delta_s0/1000 +1))/log(f),
+  
+#Calculate epsilon_p (epsilon_p) using Mariotti's approximation. This approx. assumes that delta_s/1000 and delta_s0/1000 are small relative to 1. When this assumption is true, log((delta_s/1000 +1)/(delta_s0/1000 +1)) can substituted with delta_s - delta_s0.
+  
+  epsilon_p_approx = (delta_s - delta_s0)/log(f),
+  
+  diff_delta_p = delta_p_approx - delta_p,
+  diff_delta_s = delta_s_approx - delta_s,
+  diff_delta_alpha = delta_alpha_approx - delta_alpha,
+  diff_delta_beta = delta_beta_approx - delta_beta
+  )
+ 
+  #Filter data_test5 by to select for f values where 0.25 < f < 0.75. (Rename table so that the full range of delta values can still be graphed using data_test5.)
+  data <- filter(data_test5, f <= 0.75, f >= 0.25) %>% select(-rho)
+  
+  #Store values in epsilon_test3
+  epsilon_test3$mean_tau[i] = mean(data$tau, na.rm = TRUE)
+  
+  epsilon_test3$mean_delta_check[i] = mean(data$delta_check, na.rm = TRUE)
+  epsilon_test3$sd_delta_check[i] = sd(data$delta_check, na.rm = TRUE)
+   
+ #Apply linear regression model to the data to find epsilon_p w/o the ln(1+u) = u approximation. x = ln(f), y = ln(delta_s/1000 +1), m = slope = epsilon_p. delta_s is divided by 1000 because this equation requires unitless delta values. The slope (epsilon_p) is also unitless.
+  lm_delta_p <- lm(log(delta_s/1000 + 1) ~ log(f), data = data)
+  
+  epsilon_test3$epsilon_p[i] <- (summary(lm_delta_p)$coefficients[2,1])*1000
+  epsilon_test3$ff_p[i] <- as.numeric(1 + lm_delta_p$coefficients[2])
+  epsilon_test3$KIE_p[i] <- 1/epsilon_test3$ff_p[i]
+  
+  #Apply nls2.2 to determine rho.
+  nls2.2 <- nls(sim_formula_nls2.2, data = data,
+                      start = list(rho = 0.500))
+  
+  epsilon_test3$rho[i] = coef(nls2.2)  
+  
+  epsilon_test3$ff_alpha[i] = 
+    (coef(nls2.2)/mean(data$tau, na.rm = TRUE))*epsilon_test3$ff_p[i]
+  epsilon_test3$epsilon_alpha[i] = 1000*(epsilon_test3$ff_alpha[i] - 1)
+  epsilon_test3$KIE_alpha[i] = 1000/(epsilon_test3$epsilon_alpha[i] + 1000)
+  
+  epsilon_test3$ff_beta[i] = 
+    (1-coef(nls2.2))/(1-mean(data$tau, na.rm = TRUE))*epsilon_test3$ff_p[i]
+  epsilon_test3$epsilon_beta[i] = 1000*(epsilon_test3$ff_beta[i] - 1)
+  epsilon_test3$KIE_beta[i] = 1000/(epsilon_test3$epsilon_beta[i] + 1000)
+  
+  #Apply standard Rayleigh model w/ the ln(1+u) = u approximation, where x = -flnf/(1-f) and y = delta_p
+  lm_delta_p_approx <- lm(delta_p ~ `-flnf/(1-f)`, data = data)
+  
+  epsilon_test3$epsilon_p_approx[i] <- (summary(lm_delta_p_approx)$coefficients[2,1])
+  epsilon_test3$ff_p_approx[i] <- 
+    as.numeric(1 + lm_delta_p_approx$coefficients[2]/1000)
+  epsilon_test3$KIE_p_approx[i] <- 1/epsilon_test3$ff_p_approx[i]
+  
+  epsilon_test3$ff_alpha_approx[i] = 
+    (coef(nls2.2)/mean(data$tau, na.rm = TRUE))*epsilon_test3$ff_p_approx[i]
+  epsilon_test3$epsilon_alpha_approx[i] = 1000*(epsilon_test3$ff_alpha_approx[i] - 1)
+  epsilon_test3$KIE_alpha_approx[i] = 1000/(epsilon_test3$epsilon_alpha_approx[i] + 1000)
+  
+  epsilon_test3$ff_beta_approx[i] = 
+    (1-coef(nls2.2))/(1-mean(data$tau, na.rm = TRUE))*epsilon_test3$ff_p_approx[i]
+  epsilon_test3$epsilon_beta_approx[i] = 1000*(epsilon_test3$ff_beta_approx[i] - 1)
+  epsilon_test3$KIE_beta_approx[i] = 1000/(epsilon_test3$epsilon_beta_approx[i] + 1000)
+  
+    #Calculate the absolute difference: |(est - true)| for epsilon (will be in per mil)
+  epsilon_test3$abs_diff_epsilon_p[i] = 
+    abs(epsilon_test3$epsilon_p_approx[i] - epsilon_test3$epsilon_p[i])
+  epsilon_test3$abs_diff_epsilon_alpha[i] = 
+    abs(epsilon_test3$epsilon_alpha_approx[i] - epsilon_test3$epsilon_alpha[i])
+  epsilon_test3$abs_diff_epsilon_beta[i] = 
+    abs(epsilon_test3$epsilon_beta_approx[i] - epsilon_test3$epsilon_beta[i])
+  
+  #Calculate the absolute relative difference for epsilon, ff,and KIE.
+  #abs. rel. diff. = |(est - true)/true|
+  epsilon_test3$abs_rel_diff_epsilon_p[i] = 
+    abs((epsilon_test3$epsilon_p_approx[i] - epsilon_test3$epsilon_p[i])/ epsilon_test3$epsilon_p[i])
+  
+  epsilon_test3$abs_rel_diff_epsilon_alpha[i] = 
+    abs((epsilon_test3$epsilon_alpha_approx[i] - epsilon_test3$epsilon_alpha[i])/ epsilon_test3$epsilon_alpha[i])
+  
+  epsilon_test3$abs_rel_diff_epsilon_beta[i] = 
+    abs((epsilon_test3$epsilon_beta_approx[i] - epsilon_test3$epsilon_beta[i])/ epsilon_test3$epsilon_beta[i])
+    
+  epsilon_test3$abs_rel_diff_ff_p[i] = 
+    abs((epsilon_test3$ff_p_approx[i] - epsilon_test3$ff_p[i])/ epsilon_test3$ff_p[i])
+  
+  epsilon_test3$abs_rel_diff_ff_alpha[i] = 
+    abs((epsilon_test3$ff_alpha_approx[i] - epsilon_test3$ff_alpha[i])/ epsilon_test3$ff_alpha[i])
+  
+  epsilon_test3$abs_rel_diff_ff_beta[i] = 
+    abs((epsilon_test3$ff_beta_approx[i] - epsilon_test3$ff_beta[i])/ epsilon_test3$ff_beta[i])    
+  
+  epsilon_test3$abs_rel_diff_KIE_p[i] = 
+    abs((epsilon_test3$KIE_p_approx[i] - epsilon_test3$KIE_p[i])/ epsilon_test3$KIE_p[i])
+  
+  epsilon_test3$abs_rel_diff_KIE_alpha[i] = 
+    abs((epsilon_test3$KIE_alpha_approx[i] - epsilon_test3$KIE_alpha[i])/ epsilon_test3$KIE_alpha[i])
+  
+  epsilon_test3$abs_rel_diff_KIE_beta[i] = 
+    abs((epsilon_test3$KIE_beta_approx[i] - epsilon_test3$KIE_beta[i])/ epsilon_test3$KIE_beta[i])  
+}
+
+#Save results
+write.csv(epsilon_test3, here("data/output/delta_s0_limits/epsilon_test3.csv"), row.names = TRUE)
+```

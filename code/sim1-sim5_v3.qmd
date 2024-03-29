@@ -1,0 +1,1000 @@
+---
+title: "Sim1-Sim5: Datasets 1-5 (no error)"
+author: "Elise Rivett"
+date: "2023-09-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Goal: Generate simulated Datasets 1-5 (no-error), plot the $\delta$ values for each dataset in a facet plot (Figure 1), and save the simulated values as .csv files.
+
+#Load packages:
+```{r load}
+library(tidyverse)
+library(ggplot2)
+library(nlstools)
+library(egg) #provides a way to save ggplots with specified sizes
+library(moments) #allows skewness and kurtosis calculations
+library(plotrix) #allows for standard error of the mean calculations
+library(here) #Used to create file paths relative to top-level directory.
+```
+
+#Naming conventions
+
+Throughout this file, bulk N is abbreviated as "p" (for "product").
+For example, `delta_p` refers to $\delta$^15^N^bulk^.
+
+"Fractionation factor" (normally abbreviated as $\alpha$) is abbreviated as `ff` to avoid confusion with N^$\alpha$^.
+
+$\alpha$~N-bulk~ = `ff_p`
+
+$\alpha$~N-$\alpha$~ = `ff_alpha`
+
+$\alpha$~N-$\beta$~ = `ff_beta`
+
+Other Greek letters are spelled out in object names. For example:
+
+Enrichment factor ($\epsilon$) = `epsilon`
+
+#Dataset 1: No KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^.
+
+$\epsilon$~N-$\alpha$~ is set to 0 per mil, and $\rho$ is back-calculated.
+
+`ff_alpha` and `KIE_alpha` are calculated directly from `epsilon_alpha`, which is equal to 0.
+
+`ff_beta` and `KIE_beta` are calculated directly from `epsilon_beta`, which is equal to -40.
+
+R~$\alpha$~ and R~$\beta$~ are calculated using *A* and *B*.
+See SI for details.
+$$A = {\rho}/{\tau}={\alpha}_{N-{\alpha}}/{\alpha}_{N-{bulk}}$$
+$$B = {(1-\rho)}/{(1-\tau)}={\alpha}_{N-{\beta}}/{\alpha}_{N-{bulk}}$$
+$$R_{\alpha} = A*R_p$$
+$$R_{\beta} = B*R_p$$
+$\rho$ and $\tau$ are calculated using ^15^N^$\alpha$^ and ^14^N^$\alpha$^ values (calculated from R~p~ and R~$\alpha$~).
+$$^{14}N^{\alpha} = (0.5*N_p)/(R_{\alpha} + 1)$$
+$$^{15}N^{\alpha} = R_{\alpha}*^{14}N_{\alpha}$$
+  rho = `15N_alpha`/`15N_p`, and tau = `14N_alpha`/`14N_p`:
+  
+$$\rho = ^{15}N_{\alpha}/^{15}N_p$$
+$$\tau = ^{14}N_{\alpha}/^{14}N_p$$
+```{r d1}
+d1 <- tibble(
+  #Make three replicates with evenly-spaced values of f
+  #Simulate additional values of f that are greater than 0.7 or less than 0.3 for graphing purposes only (not used for calculations).
+  f = c(c(1, 0.999, 0.99, 0.9),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1)),
+  replicate = c(
+    "NA", "NA", "NA", "NA",
+    rep(1, 8),
+    rep(2, 8),
+    rep(3, 8)
+  ),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  
+  #Define pre-determined values.
+  epsilon_bulk = -20,
+  delta_s0 = 0,
+  N_s0 = 10000, #Initial nmol of substrate for simulated experiment
+  R_std = 0.003663, #R value for atmospheric N
+  
+  #Calculate values for substrate and bulk N
+  ##Use standard Rayleigh model
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f), #Eq. (18)
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)), #Eq. (2)
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+  
+  #Calculate values for N_alpha and N_beta
+  epsilon_alpha = 0,
+  ff_alpha = 1 + epsilon_alpha/1000,
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  
+  ##epsilon_bulk = 0.5*(epsilon_alpha + epsilon_beta)  
+  epsilon_beta = 2*epsilon_bulk,
+  ff_beta = 1 + epsilon_beta/1000,
+  KIE_beta = 1000/(epsilon_beta+1000),
+  
+  ##B = (1-rho)/(1-tau) = ff_beta/ff_p,
+  B = ff_beta/ff_p,
+  
+  ##A = rho/tau
+  ##A + B = 2 as long as 14N_alpha ~= 14N_beta ~= 0.5*14N_p
+  A = 2 - B,
+  
+  R_alpha = A*R_p, #Eq. (S17)
+  delta_alpha = (R_alpha/R_std -1)*1000,
+  
+  R_beta = B*R_p, #Eq. (S18)
+  delta_beta = (R_beta/R_std - 1)*1000,
+  
+  `14N_alpha` = (0.5*N_p)/(R_alpha + 1),
+  `15N_alpha` = R_alpha*`14N_alpha`,
+
+  #Compare delta_p values calculated with Eq. (2) and Eq. (15)
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  
+  #Calculate SP
+  SP = delta_alpha - delta_beta
+)
+
+#Subset d1 (f = 0.7 to f = 0.2).
+##d2_tb2 includes only f values used for calc of rho and tau.
+d1_tb2 <- filter(d1, f <= 0.75, f >= 0.25)
+
+#Calculate rho and tau
+d1_tb2 <- d1_tb2 %>% mutate(
+  rho = `15N_alpha`/`15N_p`,
+  tau = `14N_alpha`/`14N_p`
+) %>% mutate(
+  ff_alpha_check = (mean(.$rho, na.rm = TRUE)/mean(.$tau, na.rm = TRUE))*ff_p
+)
+
+#Double-check: (rho/tau) + (1-rho)/(1-tau) = 2
+
+((d1_tb2$rho[1:5]/d1_tb2$tau[1:5]) + (1-d1_tb2$rho[1:5])/(1-d1_tb2$tau[1:5]))
+
+#This is true!
+
+#Check mean rho value.
+(mean(d1_tb2$rho, na.rm = TRUE))
+
+#Check standard deviation for rho.
+(sd(d1_tb2$rho, na.rm = TRUE))
+
+#Check mean tau value.
+(mean(d1_tb2$tau, na.rm = TRUE))
+
+#Check standard deviation for tau.
+(sd(d1_tb2$tau, na.rm = TRUE))
+
+```
+##Write Dataset 1 (no error) $\delta$ values to .csv
+
+Use d1_tb3 (0.25 < f < 0.75) (with selected columns)
+```{r write.csv_d1}
+(d1_tb3 <- d1_tb2 %>%
+    select(replicate, f, one_minus_f, `-flnf/(1-f)`, R_std, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`))
+
+write.csv(d1_tb3, here("data/output/sim1-sim5/d1_tb3.csv"), row.names = FALSE)
+```
+
+
+##Graph d1: delta_p, delta_s, delta_alpha, and delta_beta vs (1-f) with smooth lines and points.
+
+d1: No KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^
+```{r plot_d1_delta, warning=FALSE}
+d1_tidy <- d1 %>% 
+  pivot_longer(c(delta_s, delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+d1_tidy$delta_15N <- factor(d1_tidy$delta_15N, levels = c("delta_s", "delta_p", "delta_alpha", "delta_beta"))
+
+
+(d1_delta <- ggplot(data = d1_tidy, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d1_tidy, lty = 1, se = FALSE)+
+  geom_point(data = filter(d1_tidy, f <= 0.75, f >= 0.25), size = 2)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(18, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+    
+    
+  xlim(0, 1)+
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+  #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -5))+
+  theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("No "), bold(KIE^15), bold(N^alpha), bold(", Normal "), bold(KIE^15), bold(N^beta))),
+    subtitle = expression(paste(bold("Dataset 1"))))+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+
+#save figure
+ggsave(d1_delta, filename = here("graphs/sim1-sim5/d1_delta.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Dataset 2: Normal KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^
+
+Set $\rho$ equal to 0.5050.
+
+Use pre-determined $\rho$ and mean $\tau$ to calculate ($\alpha$~N-$\alpha$~) (`ff_alpha`)
+
+$$\alpha_{N-\alpha} = \rho/\tau*\alpha_{N-bulk}$$
+
+and $\alpha$~N-$\beta$~ (`ff_beta`)
+
+$$\alpha_{N-\beta} = (1-\rho)/(1-\tau)*\alpha_{N-bulk}$$
+
+```{r d2}
+d2 <- tibble(
+  #Make three replicates with evenly-spaced values of f
+  #Simulate additional values of f that are greater than 0.7 or less than 0.3 for graphing purposes only (not used for calculations).
+  f = c(c(1, 0.999, 0.99, 0.9), 
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+       seq(from = 0.8, to = 0.1, by = -0.1)),
+  replicate = c(
+    "NA", "NA", "NA", "NA",
+    rep(1, 8),
+    rep(2, 8),
+    rep(3, 8)
+  ),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  
+  #Define pre-determined values.
+  epsilon_bulk = -20,
+  delta_s0 = 0,
+  N_s0 = 10000, #Initial nmol of substrate for simulated experiment
+  R_std = 0.003663, #R value for atmospheric N
+  rho = 0.505,
+  
+  #Calculate values for substrate and bulk N
+  ##Use standard Rayleigh model
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f), #Eq. (18)
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)), #Eq. (2)
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+
+  #Calculate values for N_alpha and N_beta
+  ##Use nonlinear expansion of the Rayleigh model
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`), #Eq. (25)
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`), #Eq. (26)
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*(1 - f)*N_s0,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+
+  #Compare delta_p values calculated with Eq. (2) and Eq. (15)
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  
+  #Calculate SP and tau
+  SP = delta_alpha - delta_beta,
+  tau = `14N_alpha`/`14N_p`
+)
+
+#Subset d2 (f = 0.7 to f = 0.2).
+##d2_tb2 includes only f values used for calc of ff_alpha and ff_beta.
+d2_tb2 <- filter(d2, f <= 0.75, f >= 0.25)
+
+#Calculate ff_alpha, ff_beta, etc.
+d2_tb2 <- d2_tb2 %>% mutate(
+  ff_alpha = (rho/mean(d2_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  
+  ff_beta = (1-rho)/(1-mean(d2_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000)
+)
+
+#Double-check: (rho/tau) + (1-rho)/(1-tau) = 2
+
+((d2_tb2$rho[1:5]/d2_tb2$tau[1:5]) + (1-d2_tb2$rho[1:5])/(1-d2_tb2$tau[1:5]))
+
+#This is true!
+```
+##Write Dataset 2 (no error) $\delta$ values to .csv
+
+Use d2_tb3 (0.25 < f < 0.75) (with selected columns)
+```{r write.csv_d2}
+(d2_tb3 <- d2_tb2 %>%
+    select(replicate, f, one_minus_f, `-flnf/(1-f)`, R_std, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`))
+
+write.csv(d2_tb3, here("data/output/sim1-sim5/d2_tb3.csv"), row.names = FALSE)
+```
+
+##Graph d2: delta_p, delta_s, delta_alpha, and delta_beta vs (1-f) with smooth lines and points.
+
+d2: Normal KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^
+```{r plot_d2_delta, warning=FALSE}
+d2_tidy <- d2 %>% 
+  pivot_longer(c(delta_s, delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+d2_tidy$delta_15N <- factor(d2_tidy$delta_15N, levels = c("delta_s", "delta_p", "delta_alpha", "delta_beta"))
+
+
+(d2_delta <- ggplot(data = d2_tidy, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d2_tidy, lty = 1, se = FALSE)+
+  geom_point(data = filter(d2_tidy, f <= 0.75, f >= 0.25), size = 2)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(18, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+    
+    
+  xlim(0, 1)+
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+    #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -5))+
+  theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("Normal "), bold(KIE^15), bold(N^alpha), bold(", Normal "), bold(KIE^15), bold(N^beta))),
+    subtitle = expression(paste(bold("Dataset 2"))))+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+
+#save figure
+ggsave(d2_delta, filename = here("graphs/sim1-sim5/d2_delta.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Dataset 3: Inverse KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^
+
+Set $\rho$ equal to 0.5200.
+
+Use pre-determined $\rho$ and mean $\tau$ to calculate $\alpha$~N-$\alpha$~ and $\alpha$~N-$\beta$~.
+
+(See notes on Dataset 2.)
+```{r d3}
+d3 <- tibble(
+  #Make three replicates with evenly-spaced values of f
+  #Simulate additional values of f that are greater than 0.7 or less than 0.3 for graphing purposes only (not used for calculations).  
+  f = c(c(1, 0.999, 0.99, 0.9), 
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+       seq(from = 0.8, to = 0.1, by = -0.1)),
+  replicate = c(
+    "NA", "NA", "NA", "NA",
+    rep(1, 8),
+    rep(2, 8),
+    rep(3, 8)
+  ),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  
+  #Define pre-determined values.  
+  epsilon_bulk = -20,
+  delta_s0 = 0,
+  N_s0 = 10000, #Initial nmol of substrate for simulated experiment
+  R_std = 0.003663, #R value for atmospheric N
+  rho = 0.52,
+  
+  #Calculate values for substrate and bulk N
+  ##Use standard Rayleigh model  
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f), #Eq. (18)
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)), #Eq. (2)
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+  
+  #Calculate values for N_alpha and N_beta
+  ##Use nonlinear expansion of the Rayleigh model  
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`), #Eq. (25)
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`), #Eq. (26)
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+
+  #Compare delta_p values calculated with Eq. (2) and Eq. (15)  
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+
+  #Calculate SP and tau
+  SP = delta_alpha - delta_beta,
+  tau = `14N_alpha`/`14N_p`
+)
+
+#Subset d3 (f = 0.7 to f = 0.2).
+##d2_tb2 includes only f values used for calc of ff_alpha and ff_beta.
+d3_tb2 <- filter(d3, f <= 0.75, f >= 0.25)
+
+#Calculate ff_alpha, ff_beta, etc.
+d3_tb2 <- d3_tb2 %>% mutate(
+  ff_alpha = (rho/mean(d3_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  
+  ff_beta = (1-rho)/(1-mean(d3_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000)
+)
+
+#Double-check: (rho/tau) + (1-rho)/(1-tau) = 2
+
+((d3_tb2$rho[1:5]/d3_tb2$tau[1:5]) + (1-d3_tb2$rho[1:5])/(1-d3_tb2$tau[1:5]))
+
+#This is true!
+```
+##Write Dataset 3 (no error) $\delta$ values to .csv
+
+Use d3_tb3 (0.25 < f < 0.75) (with selected columns)
+```{r write.csv_d3}
+(d3_tb3 <- d3_tb2 %>%
+    select(replicate, f, one_minus_f, `-flnf/(1-f)`, R_std, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`))
+
+write.csv(d3_tb3, here("data/output/sim1-sim5/d3_tb3.csv"), row.names = FALSE)
+```
+
+##Graph d3: delta_p, delta_s, delta_alpha, and delta_beta vs (1-f) with smooth lines and points.
+
+d3: Inverse KIE ^15^N^$\alpha$^, normal KIE ^15^N^$\beta$^
+```{r plot_d3_delta, warning=FALSE}
+d3_tidy <- d3 %>% 
+  pivot_longer(c(delta_s, delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+d3_tidy$delta_15N <- factor(d3_tidy$delta_15N, levels = c("delta_s", "delta_p", "delta_alpha", "delta_beta"))
+
+
+(d3_delta <- ggplot(data = d3_tidy, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d3_tidy, lty = 1, se = FALSE)+
+  geom_point(data = filter(d3_tidy, f <= 0.75, f >= 0.25), size = 2)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(18, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+    
+    
+  xlim(0, 1)+
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+    #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -5))+
+  theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("Inverse "), bold(KIE^15), bold(N^alpha), bold(", Normal "), bold(KIE^15), bold(N^beta))),
+    subtitle = expression(paste(bold("Dataset 3"))))+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+
+#save figure
+ggsave(d3_delta, filename = here("graphs/sim1-sim5/d3_delta.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Dataset 4: Inverse KIE ^15^N^$\alpha$^, inverse KIE ^15^N^$\beta$^
+
+Set $\rho$ equal to 0.5050.
+
+Set $\epsilon$~N-bulk~ equal to +20 per mil.
+
+Use pre-determined $\rho$ and mean $\tau$ to calculate $\alpha$~N-$\alpha$~ and $\alpha$~N-$\beta$~.
+
+(See notes on Dataset 2.)
+
+```{r d4}
+d4 <- tibble(
+  #Make three replicates with evenly-spaced values of f
+  #Simulate additional values of f that are greater than 0.7 or less than 0.3 for graphing purposes only (not used for calculations)  
+  f = c(c(1, 0.999, 0.99, 0.9), 
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+       seq(from = 0.8, to = 0.1, by = -0.1)),
+  replicate = c(
+    "NA", "NA", "NA", "NA",
+    rep(1, 8),
+    rep(2, 8),
+    rep(3, 8)
+  ),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  
+  #Define pre-determined values.  
+  epsilon_bulk = 20,
+  delta_s0 = 0,
+  N_s0 = 10000, #Initial nmol of substrate for simulated experiment
+  R_std = 0.003663, #R value for atmospheric N
+  rho = 0.505,
+  
+  #Calculate values for substrate and bulk N
+  ##Use standard Rayleigh model  
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f), #Eq. (18)
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)), #Eq. (2)
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+  
+  #Calculate values for N_alpha and N_beta
+  ##Use nonlinear expansion of the Rayleigh model
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`), #Eq. (25)
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*N_p,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`), #Eq. (26)
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*N_p,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+
+  #Compare delta_p values calculated with Eq. (2) and Eq. (15)  
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  
+  #Calculate SP and tau  
+  SP = delta_alpha - delta_beta,
+  tau = `14N_alpha`/`14N_p`
+)
+
+#Subset d4 (f = 0.7 to f = 0.2).
+##d2_tb2 includes only f values used for calc of ff_alpha and ff_beta.
+d4_tb2 <- filter(d4, f <= 0.75, f >= 0.25)
+
+#Calculate ff_alpha, ff_beta, etc.
+d4_tb2 <- d4_tb2 %>% mutate(
+  ff_alpha = (rho/mean(d4_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  
+  ff_beta = (1-rho)/(1-mean(d4_tb2$tau, na.rm = TRUE))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000)
+)
+
+#Double-check: (rho/tau) + (1-rho)/(1-tau) = 2
+
+((d4_tb2$rho[1:5]/d4_tb2$tau[1:5]) + (1-d4_tb2$rho[1:5])/(1-d4_tb2$tau[1:5]))
+
+#This is true!
+```
+
+##Write Dataset 4 (no error) $\delta$ values to .csv
+
+Use d4_tb3 (0.25 < f < 0.75) (with selected columns)
+```{r write.csv_d4}
+(d4_tb3 <- d4_tb2 %>%
+    select(replicate, f, one_minus_f, `-flnf/(1-f)`, R_std, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`))
+
+write.csv(d4_tb3, here("data/output/sim1-sim5/d4_tb3.csv"), row.names = FALSE)
+```
+
+##Graph d4: delta_p, delta_s, delta_alpha, and delta_beta vs (1-f) with smooth lines and points.
+
+d4: Inverse KIE ^15^N^$\alpha$^, inverse KIE ^15^N^$\beta$^
+```{r plot_d4_delta, warning=FALSE}
+d4_tidy <- d4 %>% 
+  pivot_longer(c(delta_s, delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+d4_tidy$delta_15N <- factor(d4_tidy$delta_15N, levels = c("delta_s", "delta_p", "delta_alpha", "delta_beta"))
+
+
+(d4_delta <- ggplot(data = d4_tidy, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d4_tidy, lty = 1, se = FALSE)+
+  geom_point(data = filter(d4_tidy, f <= 0.75, f >= 0.25), size = 2)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(18, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+    
+    
+  xlim(0, 1)+
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+  #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -5))+
+  theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("Inverse "), bold(KIE^15), bold(N^alpha), bold(", Inverse "), bold(KIE^15), bold(N^beta))),
+    subtitle = expression(paste(bold("Dataset 4"))))+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+
+#save figure
+ggsave(d4_delta, filename = here("graphs/sim1-sim5/d4_delta.tiff"), height = 3, width = 5, units = "in")
+```
+
+
+#Dataset 5: Normal KIE ^15^N^$\alpha$^, no KIE ^15^N^$\beta$^
+
+$\epsilon$~N-$\beta$~ is set to 0 per mil and $\rho$ is back-calculated.
+
+`ff_alpha` and `KIE_alpha` are calculated directly from `epsilon_alpha`, which is equal to -40.
+
+`ff_beta` and `KIE_beta` are calculated directly from `epsilon_beta`, which is equal to 0.
+
+R~$\alpha$~ and R~$\beta$~ are calculated using *A* and *B*.
+See SI and notes on Dataset 5 for details.
+
+$\rho$ and $\tau$ are calculated using ^15^N^$\alpha$^ and ^14^N^$\alpha$^ values (calculated from R~p~ and R~$\alpha$~).
+```{r d5}
+d5 <- tibble(
+  #Make three replicates with evenly-spaced values of f
+  #Simulate additional values of f that are greater than 0.7 or less than 0.3 for graphing purposes only (not used for calculations).  
+  f = c(c(1, 0.999, 0.99, 0.9), 
+        seq(from = 0.8, to = 0.1, by = -0.1),
+        seq(from = 0.8, to = 0.1, by = -0.1),
+       seq(from = 0.8, to = 0.1, by = -0.1)),
+  replicate = c(
+    "NA", "NA", "NA", "NA",
+    rep(1, 8),
+    rep(2, 8),
+    rep(3, 8)
+  ),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  
+  #Define pre-determined values.  
+  epsilon_bulk = -20,
+  delta_s0 = 0,
+  N_s0 = 10000, #Initial nmol of substrate for simulated experiment
+  R_std = 0.003663, #R value for atmospheric N
+  
+  #Calculate values for substrate and bulk N
+  ##Use standard Rayleigh model  
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f), #Eq. (18)
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)), #Eq. (2)
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+  
+  #Calculate values for N_alpha and N_beta
+  ##epsilon_bulk = 0.5*(epsilon_alpha + epsilon_beta)
+  ##epsilon_beta = 0,
+  epsilon_alpha = 2*epsilon_bulk, 
+  ff_alpha = 1 + epsilon_alpha/1000,
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  
+  epsilon_beta = 0,
+  ff_beta = 1 + epsilon_beta/1000,
+  KIE_beta = 1000/(epsilon_beta+1000),  
+  
+  ##A = rho/tau = ff_alpha/ff_p
+  A = ff_alpha/ff_p,
+  
+  #B = (1-rho)/(1-tau)
+  ##A + B = 2 as long as 14N_alpha ~= 14N_beta ~= 0.5*14N_p  
+  B = 2 - A,
+  
+  R_alpha = A*R_p, #Eq. (S17)
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  
+  R_beta = B*R_p, #Eq.(S18) 
+  delta_beta = (R_beta/R_std -1)*1000,
+  
+  `14N_alpha` = (0.5*N_p)/(R_alpha + 1),
+  `15N_alpha` = R_alpha*`14N_alpha`,
+  
+  #Compare delta_p values calculated with Eq. (2) and Eq. (15)  
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  
+  #Calculate SP
+  SP = delta_alpha - delta_beta
+)
+
+#Subset d5 (f = 0.7 to f = 0.2).
+##d2_tb2 includes only f values used for calc of rho and tau.
+d5_tb2 <- filter(d5, f <= 0.75, f >= 0.25)
+
+#Calculate rho and tau
+d5_tb2 <- d5_tb2 %>% mutate(
+  rho = `15N_alpha`/`15N_p`,
+  tau = `14N_alpha`/`14N_p`
+) %>% mutate(
+  ff_alpha_check = (mean(.$rho, na.rm = TRUE)/mean(.$tau, na.rm = TRUE))*ff_p
+)
+
+#Double-check: (rho/tau) + (1-rho)/(1-tau) = 2
+
+((d5_tb2$rho[1:5]/d5_tb2$tau[1:5]) + (1-d5_tb2$rho[1:5])/(1-d5_tb2$tau[1:5]))
+
+#This is true!
+
+#Check mean rho value.
+(mean(d5_tb2$rho, na.rm = TRUE))
+
+#Check standard deviation for rho.
+(sd(d5_tb2$rho, na.rm = TRUE))
+
+#Check mean tau value.
+(mean(d5_tb2$tau, na.rm = TRUE))
+
+#Check standard deviation for tau.
+(sd(d5_tb2$tau, na.rm = TRUE))
+```
+
+##Write Dataset 5 (no error) $\delta$ values to .csv
+
+Use d5_tb3 (0.25 < f < 0.75) (with selected columns)
+```{r write.csv_d5}
+(d5_tb3 <- d5_tb2 %>%
+    select(replicate, f, one_minus_f, `-flnf/(1-f)`, R_std, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`))
+
+write.csv(d5_tb3, here("data/output/sim1-sim5/d5_tb3.csv"), row.names = FALSE)
+```
+
+##Graph d5: delta_p, delta_s, delta_alpha, and delta_beta vs (1-f) with smooth lines and points.
+
+sim5: Normal KIE ^15^N^$\alpha$^, inverse KIE ^15^N^$\beta$^
+```{r plot_d5_delta, warning=FALSE}
+d5_tidy <- d5 %>% 
+  pivot_longer(c(delta_s, delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+d5_tidy$delta_15N <- factor(d5_tidy$delta_15N, levels = c("delta_s", "delta_p", "delta_alpha", "delta_beta"))
+
+
+(d5_delta <- ggplot(data = d5_tidy, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d5_tidy, lty = 1, se = FALSE)+
+  geom_point(data = filter(d5_tidy, f <= 0.75, f >= 0.25), size = 2)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(18, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+    
+    
+  xlim(0, 1)+
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+    #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -5))+
+  theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("Normal "), bold(KIE^15), bold(N^alpha), bold(", No "), bold(KIE^15), bold(N^beta))),
+    subtitle = expression(paste(bold("Dataset 5"))))+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+
+#save figure
+ggsave(d5_delta, filename = here("graphs/sim1-sim5/d5_delta.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Make facet plot w/ d1-d5
+```{r plot_d1-d5_delta}
+#Add a column listing the dataset to d1_tidy - d5_tidy
+##d1
+d1_tidy <- d1_tidy %>% mutate(
+  Dataset = "Dataset 1"
+) %>%
+  select(Dataset, everything()) %>%
+  select(Dataset, replicate, f, one_minus_f, `-flnf/(1-f)`, delta_15N, delta_15N_values)
+
+##d2
+d2_tidy <- d2_tidy %>% mutate(
+  Dataset = "Dataset 2"
+) %>%
+  select(Dataset, everything()) %>%
+  select(Dataset, replicate, f, one_minus_f, `-flnf/(1-f)`, delta_15N, delta_15N_values)
+
+##d3
+d3_tidy <- d3_tidy %>% mutate(
+  Dataset = "Dataset 3"
+) %>%
+  select(Dataset, everything()) %>%
+  select(Dataset, replicate, f, one_minus_f, `-flnf/(1-f)`, delta_15N, delta_15N_values)
+
+##d4
+d4_tidy <- d4_tidy %>% mutate(
+  Dataset = "Dataset 4"
+) %>%
+  select(Dataset, everything()) %>%
+  select(Dataset, replicate, f, one_minus_f, `-flnf/(1-f)`, delta_15N, delta_15N_values)
+
+##d5
+d5_tidy <- d5_tidy %>% mutate(
+  Dataset = "Dataset 5"
+) %>%
+  select(Dataset, everything()) %>%
+  select(Dataset, replicate, f, one_minus_f, `-flnf/(1-f)`, delta_15N, delta_15N_values)
+
+d1_d5_combo <- rbind(
+  d1_tidy,
+  d2_tidy,
+  d3_tidy,
+  d4_tidy,
+  d5_tidy
+)
+
+d1_d5_combo$Dataset <- factor(d1_d5_combo$Dataset, 
+    levels = c("Dataset 1", "Dataset 2", "Dataset 3", "Dataset 4", "Dataset 5"))
+
+#Plot combined figure
+(d1_d5_combo_delta <- ggplot(data = d1_d5_combo, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N))+
+  geom_smooth(data = d1_d5_combo, lty = 1, lwd = 0.5, se = FALSE)+
+  geom_point(data = filter(d1_d5_combo, f <= 0.75, f >= 0.25), size = 1.5)+
+  scale_color_manual(name = "delta values",
+    values = c("darkorange2", "grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+  #theme(legend.text=element_text(size=24))+ #doesn't change font size (maybe this needs to be moved to scale_color_manual)
+ 
+  scale_shape_manual(name = "delta values",
+    values = c(8, 16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^s), sep="")),
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+
+  facet_wrap(~ `Dataset`, nrow = 2)+  
+  scale_x_continuous(limits = c(0, 1), breaks = c(0.5*0:2),
+                     labels = paste0(c(0.5*0:2),""))+  
+  ylim(-60, 50)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+  
+  #format axis titles
+  theme(axis.title = element_text(size = 8))+
+  theme(axis.text = element_text(size = 8))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format legend
+  theme(legend.title = element_blank())+
+  theme(legend.position = c(0.825,0.2))  
+)
+
+#save figure
+ggsave(d1_d5_combo_delta, filename = here("graphs/sim1-sim5/d1_d5_combo_delta.tiff"), height = 4.2, width = 7, units = "in")
+
+```

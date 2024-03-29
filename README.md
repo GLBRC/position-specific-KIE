@@ -10,6 +10,7 @@ cd parent_directory
 ```
 
 - Clone this remote repo into a new sub-directory and navigate to that sub-directory.
+	
 	- For GitHub (non-GLBRC) users:
 ```
 git clone https://github.com/GLBRC/position-specific-KIE
@@ -33,7 +34,7 @@ To write files properly, the package `here` has to be loaded in the `expanded_ra
 ## Sub-directories in this repository
 `code` contains multiple markdown files (.qmd) with code that can be run in R. Each file is dedicated to analysis of a specific dataset.
 
-- delta_so_limits_oub.qmd
+- delta_so_limits_pub.qmd
 	- Table S1- Absolute relative error of εN-bulk and KIE values introduced by Mariotti’s approximation of the Rayleigh equation at various δ15Ns0 values
 	- Table S2. Absolute relative error of εN-bulk and KIE values introduced by varying εN-bulk values
 

@@ -5560,9 +5560,6 @@ data <- data %>%
   sim4_e1_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value  
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e1_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e1_rep.csv", row.names = TRUE)
 
 #Filter by skewness in each model to count how many datasets were generated for each skewness type for each model.
 
@@ -5622,9 +5619,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e1_rep3 <- sim4_e1_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e1_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e1_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e1_rep3)/m
@@ -6240,9 +6234,6 @@ mutate(
   sim4_e2_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e2_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e2_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e2_lm_left_skew <- filter(sim4_e2_rep[1:n, ], skew < -0.5)
@@ -6316,9 +6307,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e2_rep3 <- sim4_e2_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e2_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e2_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e2_rep3)/m
@@ -6929,9 +6917,6 @@ mutate(
   sim4_e3_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (~2.6 MB)
-write.csv(sim4_e3_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e3_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e3_lm_left_skew <- filter(sim4_e3_rep[1:n, ], skew < -0.5)
@@ -7005,9 +6990,7 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e3_rep3 <- sim4_e3_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e3_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e3_rep3.csv", row.names = TRUE)
+
 
 #Reset nrep
 nrep = nrow(sim4_e3_rep3)/m
@@ -7617,9 +7600,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e4_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e4_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e4_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e4_lm_left_skew <- filter(sim4_e4_rep[1:n, ], skew < -0.5)
@@ -7685,9 +7665,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e4_rep3 <- sim4_e4_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e4_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e4_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e4_rep3)/m
@@ -8299,9 +8276,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e5_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e5_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e5_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e5_lm_left_skew <- filter(sim4_e5_rep[1:n, ], skew < -0.5)
@@ -8367,9 +8341,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e5_rep3 <- sim4_e5_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e5_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e5_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e5_rep3)/m
@@ -8979,9 +8950,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e6_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e6_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e6_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e6_lm_left_skew <- filter(sim4_e6_rep[1:n, ], skew < -0.5)
@@ -9047,9 +9015,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e6_rep3 <- sim4_e6_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e6_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e6_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e6_rep3)/m
@@ -9661,9 +9626,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e7_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e7_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e7_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e7_lm_left_skew <- filter(sim4_e7_rep[1:n, ], skew < -0.5)
@@ -9729,9 +9691,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e7_rep3 <- sim4_e7_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e7_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e7_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e7_rep3)/m
@@ -10341,9 +10300,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e8_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e8_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e8_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e8_lm_left_skew <- filter(sim4_e8_rep[1:n, ], skew < -0.5)
@@ -10409,9 +10365,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e8_rep3 <- sim4_e8_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e8_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e8_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e8_rep3)/m
@@ -11021,9 +10974,6 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   sim4_e9_rep$pval_tau_mean[(3*n + i)] = t.test(data$tau, mu = mean(sim4_tb2$tau, na.rm = TRUE))$p.value
 }
 
-#Save table w/ results from 1000+ simulations
-#Note: Save file to external hard drive. Large file (2.59 MB)
-write.csv(sim4_e9_rep, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e9_rep.csv", row.names = TRUE)
 
 #Filter by skewness in linear model
 sim4_e9_lm_left_skew <- filter(sim4_e9_rep[1:n, ], skew < -0.5)
@@ -11089,9 +11039,6 @@ v2 <- c(v1, (v1 + nrep), (v1 + 2*nrep), (v1 + 3*nrep))
 
 sim4_e9_rep3 <- sim4_e9_rep2[-v2, ]
 
-#Save final table w/ results from 1000 simulations
-#Note: Save file to external hard drive. Large file (~2.7 MB)
-write.csv(sim4_e9_rep3, "E:/2021-10-13 laptop backup/Documents/N2O project papers/nonlinear_model_MS/sim4/sim4_e9_rep3.csv", row.names = TRUE)
 
 #Reset nrep
 nrep = nrow(sim4_e9_rep3)/m

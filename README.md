@@ -9,7 +9,14 @@ To clone the remote repository to your local drive and create a new directory on
 cd parent_directory
 ```
 
-- Clone this remote repo into a new sub-directory and navigate to that sub-directory:
+- Clone this remote repo into a new sub-directory and navigate to that sub-directory.
+	- For GitHub (non-GLBRC) users:
+```
+git clone https://github.com/GLBRC/position-specific-KIE
+cd new_sub_directory
+```
+
+	- For GLBRC users:
 ```
 git clone https://gitpub.wei.wisc.edu/rivettel/position-specific-kie.git
 cd new_sub_directory

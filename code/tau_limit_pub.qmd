@@ -1,0 +1,200 @@
+---
+title: "Tau_limit_pub"
+author: "Elise Rivett"
+date: "2023-04-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load packages:
+```{r load}
+library(tidyverse)
+library(ggplot2)
+library(nlstools)
+library(modelr) #provides rmse() function
+library(egg) #provides a way to save ggplots with specified sizes
+library(moments) #allows skewness and kurtosis calculations
+library(plotrix) #allows for standard error of the mean calculations
+library(sn) #This is a package that can generate skewed distributions.
+library(here) #Used to create file paths relative to top-level directory.
+```
+
+
+#Vary values of $\rho$ and determine the corresponding values of $\tau$ when $\epsilon$~N-bulk~ = -20 permil and $\delta$~s0~ = 0 permil.
+
+#Naming conventions and abbreviations
+
+Throughout this file, bulk N is abbreviated as "p" (for "product").
+For example, `delta_p` refers to $\delta$^15^N^bulk^.
+
+"Fractionation factor" (normally abbreviated as $\alpha$) is abbreviated as `ff` to avoid confusion with N^$\alpha$^.
+
+$\alpha$~N-bulk~ = `ff_p`
+
+$\alpha$~N-$\alpha$~ = `ff_alpha`
+
+$\alpha$~N-$\beta$~ = `ff_beta`
+
+Other Greek letters are spelled out in object names. For example:
+
+Enrichment factor ($\epsilon$) = `epsilon`
+
+Other abbreviations
+
+- lm    linear regression model
+
+- nls   nonlinear least square regression model
+
+- sd    standard deviation
+
+- se    standard error
+
+#Make empty table for storing results of varying rho
+```{r blank_tau_tb}
+blank_tau_tb <- function(n) {
+  tibble(
+  rho = vector(length = n, mode = "numeric"),
+
+  mean_tau = vector(length = n, mode = "numeric"),
+  sd_tau = vector(length = n, mode = "numeric"),
+  
+  delta_s0 = vector(length = n, mode = "numeric"),
+  epsilon_bulk = vector(length = n, mode = "numeric"),
+  
+  ff_p = vector(length = n, mode = "numeric"),
+  KIE_p = vector(length = n, mode = "numeric"),
+  
+  epsilon_alpha = vector(length = n, mode = "numeric"),
+  ff_alpha = vector(length = n, mode = "numeric"),
+  KIE_alpha = vector(length = n, mode = "numeric"),
+  
+  epsilon_beta = vector(length = n, mode = "numeric"),
+  ff_beta = vector(length = n, mode = "numeric"),
+  KIE_beta = vector(length = n, mode = "numeric"),
+  
+  mean_delta_check = vector(length = n, mode = "numeric"),
+  sd_delta_check = vector(length = n, mode = "numeric"),
+  
+  max_delta_check = vector(length = n, mode = "numeric")
+  )
+}
+```
+
+
+#Vary values of rho and determine the corresponding values of tau when epsilon_bulk = -20 and delta_s0 = 0 (tau_tb3).
+
+Range of f values: 0.2 to 0.7 (tau_tb3)
+
+Calculate `ff_alpha` and `ff_beta` using the pre-determined value of `rho` and the average `tau` value.
+  
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p
+  tau_tb3$mean_ff_alpha[i] <- mean(ff_alpha, na.rm = TRUE)
+  
+  ff_beta = (1-rho)/(1-mean(tau, na.rm = TRUE))*ff_p
+  tau_tb3$mean_ff_beta[i] <- mean(ff_beta, na.rm = TRUE)
+  
+There is no error for rho or ff_p, so doing standard error calculations doesn't make much sense.
+```{r tau_tb3}
+rho <- seq(from = 0, to = 1, by = 0.01)
+
+n = length(rho)
+
+tau_tb3 <- blank_tau_tb(n)
+
+tau_tb3$rho = rho
+
+for (i in 1:nrow(tau_tb3)) {
+  rho <- tau_tb3$rho[i]
+  
+  data <- tibble(
+  f = c(0.7, 0.6, 0.5, 0.4, 0.3,
+        0.2),
+  one_minus_f = 1 - f,
+  `-flnf/(1-f)` = -f*log(f)/(1-f),
+  epsilon_bulk = -20,
+  delta_s0 = 0,
+  N_s0 = 10000,
+  R_std = 0.003663,
+  N_s = f*N_s0,
+  delta_s = delta_s0 + epsilon_bulk*log(f),
+  delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)),
+  R_s = (delta_s/1000+1)*R_std,
+  R_p = (delta_p/1000+1)*R_std,
+  N_p = (1 - f)*N_s0,
+  `14N_p` = N_p/(1 + R_p),
+  `15N_p` = R_p*`14N_p`,
+  ff_p = 1 + epsilon_bulk/1000, #ff_p = bulk fractionation factor
+  KIE_p = 1000/(epsilon_bulk+1000),
+  #instantaneous delta_p is approx. equal to delta_s + epsilon_bulk if epsilon_bulk is small relative to 1000
+  delta_p_i = delta_s + epsilon_bulk,
+  R_p_i = (delta_p_i/1000 + 1)*R_std,
+  R_alpha = (rho*`15N_p`)/(0.5*N_p - rho*`15N_p`),
+  delta_alpha = (R_alpha/R_std - 1)*1000,
+  N_alpha = 0.5*(1 - f)*N_s0,
+  `15N_alpha` = rho*`15N_p`,
+  `14N_alpha` = N_alpha - `15N_alpha`,
+  N_alpha_check = `15N_alpha` + `14N_alpha`,
+  tau = `14N_alpha`/`14N_p`,
+  R_beta = ((1 - rho)*`15N_p`)/
+    (0.5*N_p - (1 - rho)*`15N_p`),
+  delta_beta = (R_beta/R_std - 1)*1000,
+  N_beta = 0.5*(1 - f)*N_s0,
+  `15N_beta` = (1 - rho)*`15N_p`,
+  `14N_beta` = N_beta - `15N_beta`,
+  N_beta_check = `15N_beta` + `14N_beta`,
+  avg_delta = 0.5*(delta_alpha + delta_beta),
+  delta_check = delta_p - avg_delta,
+  ff_alpha = (rho/mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_alpha = 1000*(ff_alpha - 1),
+  #KIE = 1/ff = 1000/(epsilon +1000),
+  KIE_alpha = 1000/(epsilon_alpha+1000),
+  ff_beta = (1-rho)/(1-mean(tau, na.rm = TRUE))*ff_p,
+  epsilon_beta = 1000*(ff_beta - 1),
+  KIE_beta = 1000/(epsilon_beta + 1000),
+)
+  
+  tau_tb3$mean_tau[i] = mean(data$tau, na.rm = TRUE)
+  tau_tb3$sd_tau[i] = sd(data$tau, na.rm = TRUE)
+  
+  tau_tb3$delta_s0[i] = data$delta_s0[1]
+  tau_tb3$epsilon_bulk[i] = data$epsilon_bulk[1]
+  
+  tau_tb3$ff_p[i] = data$ff_p[1]
+  tau_tb3$KIE_p[i] = data$KIE_p[1]
+  
+  tau_tb3$ff_alpha[i] = data$ff_alpha[1]
+  tau_tb3$epsilon_alpha[i] = data$epsilon_alpha[1]
+  tau_tb3$KIE_alpha[i] = data$KIE_alpha[1]
+  
+  tau_tb3$ff_beta[i] = data$ff_beta[1]
+  tau_tb3$epsilon_beta[i] = data$epsilon_beta[1]
+  tau_tb3$KIE_beta[i] = data$KIE_beta[1]
+  
+  tau_tb3$mean_delta_check[i] = mean(data$delta_check, na.rm = TRUE)
+  tau_tb3$sd_delta_check[i] = sd(data$delta_check, na.rm = TRUE)
+  tau_tb3$max_delta_check[i] = max(data$delta_check, na.rm = TRUE)
+}
+```
+
+#Limit rho values to those where delta_p (calculated with standard Rayleigh equation) is within 0.01 per mille of 0.5*(delta_alpha + delta_beta)
+
+##Table S3 is a subset of tau_tb3_v3
+```{r filter_tau_tb3}
+#Limit rho values to those where delta_p (calculated with standard Rayleigh equation) is within 0.01 permil of 0.5*(delta_alpha + delta_beta)
+
+#tau_tb3_v1:
+(tau_tb3_v1 <- filter(tau_tb3, abs(mean_delta_check) <= 0.01))
+
+
+#tau_tb3_v3: Filter table for publication
+(range(tau_tb3_v1$rho))
+
+(tau_tb3_v3 <- filter(tau_tb3, rho >= (range(tau_tb3_v1$rho)[1] - 0.01) & 
+                        rho <= range(tau_tb3_v1$rho)[2] + 0.01))
+
+write.csv(tau_tb3_v3, here("data/output/tau_limit/tau_tb3_v3.csv"), row.names = TRUE)
+
+```

@@ -1,0 +1,1007 @@
+---
+title: "exp_hydroxylamine_ox_pub"
+author: "Elise Rivett"
+date: "2024-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load tidyverse and ggplot2:
+```{r load}
+library(tidyverse)
+library(ggplot2)
+library(nlstools)
+library(modelr) #provides rmse() function
+library(egg) #provides a way to save ggplots with specified sizes
+library(moments) #allows skewness and kurtosis calculations
+library(plotrix) #allows for standard error of the mean calculations
+library(sn) #This is a package that can generate skewed distribution.
+library(here) #Used to create file paths relative to top-level directory.
+```
+
+#Goal: Apply Expanded Rayleigh model to previously published experimental data on NH~2~OH oxidation by *Methylosinus trichosporium*.
+
+#Naming conventions and abbreviations
+
+Throughout this file, bulk N is abbreviated as "p" (for "product").
+For example, `delta_p` refers to $\delta$^15^N^bulk^.
+
+"Fractionation factor" (normally abbreviated as $\alpha$) is abbreviated as `ff` to avoid confusion with N^$\alpha$^.
+
+$\alpha$~N-bulk~ = `ff_p`
+
+$\alpha$~N-$\alpha$~ = `ff_alpha`
+
+$\alpha$~N-$\beta$~ = `ff_beta`
+
+Other Greek letters are spelled out in object names. For example:
+
+Enrichment factor ($\epsilon$) = `epsilon`
+
+Other abbreviations
+
+- lm    linear regression model
+
+- nls   nonlinear least square regression model
+
+- sd    standard deviation
+
+- se    standard error
+
+#Import experimental data for *M. trichosporium* replicate B.
+
+Data from Sutka et al., 2006, Table 1. Concentration, $\delta$^15^N, $\delta$^18^O, and site preference of N~2~O produced during NH~2~OH oxidation by concentrated cell suspensions of *N. europaea*, *N. multiformis*, and *M. trichosporium*.
+
+This data represents N~2~O produced from a single chemical transformation, hydroxylamine (NH~2~OH) oxidation by hydroxylamine oxidoreductase (HAO).
+
+*M. trichosporium* replicate B is the only experiment with a wide enough range of f values to determine $\epsilon$~N-bulk~ (`epsilon_bulk`) via the standard Rayleigh approach (linear regression of $\delta$~N-bulk~ (`delta_p`) against `-flnf/(1-f)`).
+
+##Reference:
+Sutka RL, Ostrom NE, Ostrom PH, Breznak JA, Gandhi H, Pitt AJ, Li F. Distinguishing nitrous oxide production from nitrification and denitrification on the basis of isotopomer abundances. Appl Environ Microbiol. 2006 Jan;72(1):638-44. doi: 10.1128/AEM.72.1.638-644.2006.
+```{r import_raw_data}
+hydroxylamine_ox_raw <- read.table(here("data/input/hydroxylamine_ox_raw.csv"),sep = ",", header = TRUE )
+```
+
+#Mtrich: Calculate f, delta_alpha, delta_beta and values needed for Expanded Rayleigh model.
+
+Name table with added values `Mtrich`, which stands for *M. trichosporium*.
+
+- `Mtrich_all` includes "time_0" data (needed for graphs) and rep. B data
+- `Mtrich` includes only rep. B data (used for calculations)
+
+#Calculate N~2~O micromoles by multiplying N~2~O concentration (micromolar) by headspace volume (L). 
+
+$$vol_{headspace} = 25 mL -2.3 mL = 22.7 mL$$
+##Table S14 is a subset of this table.
+
+```{r add_values}
+
+Mtrich_all <- hydroxylamine_ox_raw %>%
+
+#Add back-calculated values
+mutate(
+ N2O_umol = N2O_conc_uM*0.0227,
+ N_p = N2O_umol*2,
+ N_s = N_s0 - N_p,
+ f = N_s/N_s0,
+ one_minus_f = 1-f,
+ `-flnf/(1-f)` = -f*log(f)/(1-f),
+ delta_alpha = delta_p + SP/2,
+ delta_beta = delta_alpha - SP,
+ 
+#Add more values for Expanded Rayleigh model
+ R_std = 0.003663,
+ R_p = (delta_p/1000 + 1)*R_std,
+ R_alpha = (delta_alpha/1000 + 1)*R_std,
+ R_beta = (delta_beta/1000 + 1)*R_std,
+ `14N_p` = N_p/(1 + R_p),
+ `15N_p` = R_p*`14N_p`,
+ `14N_alpha` = 0.5*N_p/(1 + R_alpha),
+ `15N_alpha` = R_alpha*`14N_alpha`,
+ tau = `14N_alpha`/`14N_p`
+)
+
+#Filter out "time_0" data
+Mtrich <- Mtrich_all %>% filter(replicate == "B")
+```
+
+#Name linear regression models for standard Rayleigh plots of M. trichosporium replicate B.
+```{r Mtrich_lm_delta}
+Mtrich_lm_delta_p <- lm(
+  delta_p ~ `-flnf/(1-f)`, data = Mtrich
+)
+
+Mtrich_lm_delta_alpha <- lm(
+  delta_alpha ~ `-flnf/(1-f)`, data = Mtrich
+)
+
+Mtrich_lm_delta_beta <- lm(
+  delta_beta ~ `-flnf/(1-f)`, data = Mtrich
+)
+
+#Check the summary for each standard Rayleigh linear regression model
+(summary(Mtrich_lm_delta_p))
+(rmse(Mtrich_lm_delta_p, Mtrich))
+
+(summary(Mtrich_lm_delta_alpha))
+
+(summary(Mtrich_lm_delta_beta))
+```
+
+#Plot histogram of residuals for the standard Rayleigh model where y = delta_p
+
+M. trichosporium replicate B.
+```{r residuals_Ray}
+#Plot histogram of residuals from M. trichosporium replicate B.
+hist(Mtrich_lm_delta_p$residuals)
+
+##Make dataframe with fitted values and residuals
+Mtrich_lm_delta_p_res_tb <-
+  tibble(
+    fitted.values = Mtrich_lm_delta_p$fitted.values,
+    residuals = Mtrich_lm_delta_p$residuals)
+
+##Make table with properties of residuals
+(Mtrich_lm_delta_p_res_tb2 <- tibble(
+  min = min(Mtrich_lm_delta_p$residuals),
+  max = max(Mtrich_lm_delta_p$residuals),
+  sd = sd(Mtrich_lm_delta_p$residuals), #sample standard deviation
+  skewness = skewness(Mtrich_lm_delta_p$residuals),
+  kurtosis = kurtosis(Mtrich_lm_delta_p$residuals)
+  )
+)
+```
+
+#Figure 4: Plot *M. trichosporium* replicate B accumulated delta values with legend.
+
+The label for delta_s0 was added to the figure manually.
+```{r plot_delta_accum_leg}
+#Pivot table
+Mtrich_tidy_accum <- Mtrich %>% 
+  pivot_longer(c(delta_p, delta_alpha, delta_beta), names_to = "delta_15N", values_to = "delta_15N_values")
+
+Mtrich_tidy_accum$delta_15N <- factor(Mtrich_tidy_accum$delta_15N, levels = c("delta_p", "delta_alpha", "delta_beta"))
+
+
+(Mtrich_delta_accum_leg <- ggplot()+
+  geom_point(data = filter(Mtrich_all, f == 1), mapping = 
+         aes(x = one_minus_f, y = delta_s0), shape = 8, color = "darkorange2", size = 2)+
+  geom_point(data = Mtrich_tidy_accum, mapping = 
+         aes(x = one_minus_f, y = delta_15N_values, shape = delta_15N, color = delta_15N), size = 2)+
+#Need identical "name" and "labels" for scale_color_manual and scale_shape_manual to get one combined legend.    
+  scale_color_manual(name = "delta values",
+    values = c("grey48", "blue", "green4"),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ),theme(legend.text=element_text(size=24)))+
+    
+    scale_shape_manual(name = "delta values",
+    values = c(16, 15, 17),
+    labels = c(
+    expression(paste(bold(delta^15),bold(N^bulk), sep="")),
+    expression(paste(bold(delta^15),bold(N^alpha), sep="")),
+    expression(paste(bold(delta^15),bold(N^beta), sep=""))
+  ))+ 
+
+  xlim(0, 1) + 
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())+
+   
+  #format axis titles
+  theme(axis.title = element_text(size = 16))+
+  theme(axis.text = element_text(size = 16))+
+  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
+  
+  #format plot title
+  theme(plot.title = element_text(size = 16))+
+  theme(plot.title = element_text(face = "bold", vjust = -1))+
+  #theme(plot.subtitle = element_text(vjust = -10, hjust = 0.1))+  
+  labs(
+    title = expression(paste(bold("NH"), bold(""[2]), bold("OH oxidation ("), bold(italic("M. trichosporium")), bold( ")" ) ))
+    )+
+  
+  #format legend
+  theme(legend.title = element_blank())
+)
+#save figure
+ggsave(Mtrich_delta_accum_leg, filename = here("graphs/exp_hydroxylamine_ox/Mtrich_delta_accum_leg.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Plot M. trichosporium replicate B Rayleigh plot (x = [-flnf/(1-f)])
+
+x = `-flnf/(1-f)`
+
+y = `delta_p`, `delta_alpha`, or `delta_beta`
+```{r plot_Rayleigh}
+(Mtrich_Rayleigh <- ggplot(data = Mtrich, mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  geom_point(mapping = aes(y = delta_p), color = "grey48",
+             shape = 16)+
+  geom_point(mapping = aes(y = delta_alpha), color = "blue",
+             shape = 15)+
+  geom_point(mapping = aes(y = delta_beta), color = "green4",
+             shape = 17)+
+  geom_smooth(mapping = aes(y = delta_p), color = "grey48",
+              method = lm, se = FALSE, fullrange=FALSE)+
+  geom_smooth(mapping = aes(y = delta_alpha), color = "blue",
+            method = lm, se = FALSE, fullrange=FALSE)+
+  geom_smooth(mapping = aes(y = delta_beta), color = "green4",
+              method = lm, se = FALSE, fullrange=FALSE)+
+  xlab("-flnf/(1-f)")+ ylab("delta N")+
+  theme_bw()+
+  xlim(0, 1) +    
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+#save figure
+ggsave(Mtrich_Rayleigh, filename = here("graphs/exp_hydroxylamine_ox/Mtrich_Rayleigh.tiff"), height = 3, width = 5, units = "in")
+```
+
+#Graph SP vs -flnf/(1-f) (M. trichosporium replicate B)
+```{r plot_Mtrich_SP_2, warning=FALSE}
+
+(Mtrich_SP_2 <- ggplot(data = Mtrich, mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  geom_point(mapping = aes(y = SP), color = "purple",
+             shape = 4)+
+  geom_smooth(mapping = aes(y = SP), color = "purple",
+              method = lm, se = FALSE, fullrange=TRUE)+
+  xlab("-flnf/(1-f)")+ ylab("SP")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+##save figure
+ggsave(Mtrich_SP_2, filename = here("graphs/exp_hydroxylamine_ox/Mtrich_SP_2.tiff"), height = 3, width = 5, units = "in")
+
+##Apply linear regression model to SP
+Mtrich_lm_SP_2 <- lm(SP ~ `-flnf/(1-f)`, data = Mtrich)
+summary(Mtrich_lm_SP_2)
+```
+
+#Graph tau vs -flnf/(1-f) for M. trichosporium replicate B
+```{r plot_tau_Mtrich_2}
+
+(Mtrich_tau_2 <- ggplot(data = Mtrich, mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  geom_point(mapping = aes(y = tau), color = "orange",
+             shape = 4)+
+  geom_smooth(mapping = aes(y = tau), color = "orange",
+              method = lm, se = FALSE, fullrange=TRUE)+
+  xlab("-flnf/(1-f)")+ ylab("tau")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+##save figure
+ggsave(Mtrich_tau_2, filename = here("graphs/exp_hydroxylamine_ox/Mtrich_tau_2.tiff"), height = 3, width = 5, units = "in")
+
+##Apply linear regression model to SP
+Mtrich_lm_tau_2 <- lm(tau ~ `-flnf/(1-f)`, data = Mtrich)
+summary(Mtrich_lm_tau_2)
+```
+
+#Graph rho vs -flnf/(1-f) for M. trichosporium replicate B
+```{r plot_rho_Mtrich_2}
+#Calculate rho for each value of f
+Mtrich_rho_tb <- Mtrich %>% mutate(
+  rho = `15N_alpha`/`15N_p`
+)
+
+(Mtrich_rho_2 <- ggplot(data = Mtrich_rho_tb, mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  geom_point(mapping = aes(y = rho), color = "red",
+             shape = 4)+
+  geom_smooth(mapping = aes(y = rho), color = "red",
+              method = lm, se = FALSE, fullrange=TRUE)+
+  xlab("-flnf/(1-f)")+ ylab("rho")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+##save figure
+ggsave(Mtrich_rho_2, filename = here("graphs/exp_hydroxylamine_ox/Mtrich_rho_2.tiff"), height = 3, width = 5, units = "in")
+
+##Apply linear regression model to SP
+Mtrich_lm_rho_2 <- lm(rho ~ `-flnf/(1-f)`, data = Mtrich_rho_tb)
+summary(Mtrich_lm_rho_2)
+```
+
+#Make blank table (tibble) for storing values extracted from each model.
+```{r summary_blank}
+#n = number of loops; in this case, the number of replicates
+n = 1
+
+#m = number of models; in this case, m = 1 because we're only using one model for each table
+
+m <- 1
+
+blank_tb <- function(n, m = 1) {
+  tibble(
+    Model = vector(length = n*m, mode = "expression"),
+    Data = vector(length = n*m, mode = "expression"),
+  
+    Multiple_R_squared = vector(length = n*m, mode = "numeric"),
+    RMSE_lm = vector(length = n*m, mode = "numeric"), #RMSE value for delta_p prediction from linear Rayleigh model
+  
+    lm_delta_p_ncv = vector(length = n*m, mode = "numeric"), #p-value from ncvTest
+  
+    f_min = vector(length = n*m, mode = "numeric"),
+    f_max = vector(length = n*m, mode = "numeric"),
+  
+    delta_s0_meas = vector(length = n*m, mode = "numeric"),
+    se_delta_s0_meas = vector(length = n*m, mode = "numeric"),
+    
+    delta_s0_calc = vector(length = n*m, mode = "numeric"),
+    se_delta_s0_calc = vector(length = n*m, mode = "numeric"),
+    
+    RMSE_nls = vector(length = n*m, mode = "numeric"), #RMSE value for delta_p prediction from nonlinear model
+    
+    rho = vector(length = n*m, mode = "numeric"),
+    se_rho = vector(length = n*m, mode = "numeric"),
+  
+    tau = vector(length = n*m, mode = "numeric"),
+    se_tau = vector(length = n*m, mode = "numeric"),
+    
+    epsilon_p = vector(length = n*m, mode = "numeric"),
+    se_epsilon_p = vector(length = n*m, mode = "numeric"),
+    
+    ff_p = vector(length = n*m, mode = "numeric"),
+    se_ff_p = vector(length = n*m, mode = "numeric"),
+    
+    ff_alpha = vector(length = n*m, mode = "numeric"),
+    se_ff_alpha = vector(length = n*m, mode = "numeric"),
+    
+    ff_beta = vector(length = n*m, mode = "numeric"),
+    se_ff_beta = vector(length = n*m, mode = "numeric"),   
+ 
+    epsilon_alpha = vector(length = n*m, mode = "numeric"),
+    se_epsilon_alpha = vector(length = n*m, mode = "numeric"),
+    
+    epsilon_beta = vector(length = n*m, mode = "numeric"),
+    se_epsilon_beta = vector(length = n*m, mode = "numeric"),
+    
+    KIE_p = vector(length = n*m, mode = "numeric"),
+    se_KIE_p = vector(length = n*m, mode = "numeric"),
+    
+    KIE_alpha = vector(length = n*m, mode = "numeric"),
+    se_KIE_alpha = vector(length = n*m, mode = "numeric"),
+    
+    KIE_beta = vector(length = n*m, mode = "numeric"),
+    se_KIE_beta = vector(length = n*m, mode = "numeric")
+)
+}
+```
+
+#Apply the standard Rayleigh model to M. trichosporium replicate B
+```{r Mtrich_Rayleigh, warning=FALSE}
+#n = number of loops; in this case, the number of replicates
+n <- 1
+
+#m = number of models; in this case, m = 1 because we're only using one model (standard Rayleigh)
+
+m <- 1
+
+#Make empty table to store results
+Mtrich_std_ray <- blank_tb(n, m)
+
+Mtrich_std_ray <- mutate(Mtrich_std_ray,
+  Model = c(
+    "Standard Rayleigh"
+  ),
+  
+  Data = c(
+    "M. trichosporium replicate B"
+)
+) 
+
+for (i in 1:n) {
+  
+  if(i == 1){
+    data <- Mtrich_std_ray
+  } #else if(i == 2){
+    #data <- other_data
+  #}
+  
+  data <- Mtrich
+  
+  #Apply standard Rayleigh model where x = `-flnf/(1-f)` and y = delta_p, delta_alpha, or delta_beta
+    lm_delta_p <- lm(delta_p ~ `-flnf/(1-f)`, data = data)
+    
+    lm_delta_alpha <- lm(delta_alpha ~ `-flnf/(1-f)`, data = data)
+    
+    lm_delta_beta <- lm(delta_beta ~ `-flnf/(1-f)`, data = data)
+  
+    #Fill in table w/ values extracted from standard Rayleigh model where y = delta_p
+    Mtrich_std_ray$Multiple_R_squared[i] = summary(lm_delta_p)$r.squared
+    Mtrich_std_ray$RMSE_lm[i] = rmse(model = lm_delta_p, data = data)
+  
+    Mtrich_std_ray$lm_delta_p_ncv[i] = car::ncvTest(lm_delta_p)$p #p-value from ncvTest
+  
+    Mtrich_std_ray$f_min[i] = min(data$f)
+    Mtrich_std_ray$f_max[i] = max(data$f)
+    
+    Mtrich_std_ray$delta_s0_meas[i] = Mtrich$delta_s0[1]
+    Mtrich_std_ray$se_delta_s0_meas[i] = "not reported"
+  
+    Mtrich_std_ray$delta_s0_calc[i] = summary(lm_delta_p)$coefficients[1,1]
+    Mtrich_std_ray$se_delta_s0_calc[i] = summary(lm_delta_p)$coefficients[1,2]    
+    
+    Mtrich_std_ray$RMSE_nls[i] = "NA"
+    
+    Mtrich_std_ray$rho[i] = "NA"
+    Mtrich_std_ray$se_rho[i] = "NA"
+  
+    Mtrich_std_ray$tau[i] = "NA"
+    Mtrich_std_ray$se_tau[i] = "NA"
+    
+    Mtrich_std_ray$epsilon_p[i] = as.numeric(lm_delta_p$coefficients[2])
+    Mtrich_std_ray$se_epsilon_p[i] = summary(lm_delta_p)$coefficients[2,2]
+    
+    Mtrich_std_ray$ff_p[i] = 1 + lm_delta_p$coefficients[2]/1000
+    Mtrich_std_ray$se_ff_p[i] = Mtrich_std_ray$se_epsilon_p[i]/1000
+    
+    Mtrich_std_ray$epsilon_alpha[i] = as.numeric(lm_delta_alpha$coefficients[2])
+    Mtrich_std_ray$se_epsilon_alpha[i] = summary(lm_delta_alpha)$coefficients[2,2]
+    
+    Mtrich_std_ray$epsilon_beta[i] = as.numeric(lm_delta_beta$coefficients[2])
+    Mtrich_std_ray$se_epsilon_beta[i] = summary(lm_delta_beta)$coefficients[2,2]
+    
+    Mtrich_std_ray$ff_alpha[i] = 1 + lm_delta_alpha$coefficients[2]/1000
+    Mtrich_std_ray$se_ff_alpha[i] = Mtrich_std_ray$se_epsilon_alpha[i]/1000
+    
+    Mtrich_std_ray$ff_beta[i] = 1 + lm_delta_beta$coefficients[2]/1000
+    Mtrich_std_ray$se_ff_beta[i] = Mtrich_std_ray$se_epsilon_beta[i]/1000  
+    
+    Mtrich_std_ray$KIE_p[i] = 1/Mtrich_std_ray$ff_p[i]
+    Mtrich_std_ray$se_KIE_p[i] = abs(-1/(Mtrich_std_ray$ff_p[i])^2*Mtrich_std_ray$se_ff_p[i])
+    
+    Mtrich_std_ray$KIE_alpha[i] = 1/Mtrich_std_ray$ff_alpha[i]
+    Mtrich_std_ray$se_KIE_alpha[i] = abs(-1/(Mtrich_std_ray$ff_alpha[i])^2*Mtrich_std_ray$se_ff_alpha[i])
+    
+    Mtrich_std_ray$KIE_beta[i] = 1/Mtrich_std_ray$ff_beta[i]
+    Mtrich_std_ray$se_KIE_beta[i] = abs(-1/(Mtrich_std_ray$ff_beta[i])^2*Mtrich_std_ray$se_ff_beta[i])
+}
+
+write.csv(Mtrich_std_ray, here("data/output/exp_hydroxylamine_ox/Mtrich_std_ray.csv"), row.names = TRUE)
+
+(Mtrich_std_ray)
+```
+
+#Nonlinear model 1.2 (nls1.2) applied to M. trichosporium replicate B.
+
+Use nonlinear model to determine rho
+
+nls1.2: delta_p = 0.5*(delta_alpha + delta_beta) where delta_alpha is replaced by the rho equation (but delta_beta is not) and N_p is used as a variable instead of (1-f)*N_so
+```{r Mtrich_nls1.2}
+#Define formula
+sim_formula_nls1.2 <- as.formula(delta_p ~ 0.5*(
+  (rho*`15N_p`/((0.5*N_p) - rho*`15N_p`)/R_std - 1)*1000 + 
+    delta_beta)
+  )
+
+preview(sim_formula_nls1.2, data = filter(Mtrich, replicate == "B"),
+        start = list(rho = 0.500), variable = 23) #variable = `15N_p`
+
+Mtrich_nls1.2 <- nls(sim_formula_nls1.2, data = Mtrich,
+    start = list(rho = 0.500)
+)
+
+overview(Mtrich_nls1.2)
+
+(rmse(Mtrich_nls1.2, data = Mtrich))
+```
+
+#Plot predicted values (in red, Mtrich_nls1.2) and actual experimental values (in gray) for M. trichosporium replicate B.
+```{r predict_Mtrich_nls1.2}
+
+Mtrich <- Mtrich %>%
+  dplyr::mutate(delta_p_pred_nls1.2 = predict(Mtrich_nls1.2))
+
+#
+ggplot(data = Mtrich, mapping = 
+         aes(x = one_minus_f))+
+  geom_point(mapping = aes(y = delta_p), color = "gray",
+             shape = 1)+
+  geom_point(mapping = aes(y = delta_p_pred_nls1.2), color = "red",
+             shape = 3)+
+  xlab("1-f")+ ylab("delta_p")+ ggtitle("M. trichosporium Rep. B nls1.2")+
+  xlim(0, 1)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+```
+
+#Assess the goodness of fit through residuals for nls1.2 (M. trichosporium rep. B)
+
+Use nlsResiduals() to extract residuals from the nls object, and use plot() to visualize the results.
+```{r Mtrich_nls1.2_res}
+Mtrich_nls1.2_res <- nlsResiduals(Mtrich_nls1.2)
+
+plot(Mtrich_nls1.2_res)
+```
+
+#Plot residuals for nls1.2 as histogram (M. trichosporium rep. B), assess distribution, and calculate p-value for rho.
+
+Convert t-test statistic to p-value for two-tailed t-test using pt()
+
+p-value calculation: null hypothesis is rho = 0.5
+t_test_statistic = (rho - rho_null)/se_rho
+
+q = t-test statistic (one-sample, null hypothesis: rho = 0.5)
+
+df = degrees of freedom, lower.tail = if true, calculate the probability to the left of q; if FALSE, calculate the probablity to the right of q
+
+pt() calculates one-tailed p-value; multiply result by 2 to get two-tailed p-value.
+```{r Mtrich_nls1.2_res_hist}
+
+Mtrich_nls1.2_res_df1 <- as.data.frame(Mtrich_nls1.2_res$resi1) 
+
+hist(Mtrich_nls1.2_res_df1$Residuals)
+
+(Mtrich_nls1.2_res_df2 <- tibble(
+  min = min(Mtrich_nls1.2_res_df1$Residuals),
+  max = max(Mtrich_nls1.2_res_df1$Residuals),
+  sd = sd(Mtrich_nls1.2_res_df1$Residuals), #sample standard deviation
+  skewness = skewness(Mtrich_nls1.2_res_df1$Residuals),
+  kurtosis = kurtosis(Mtrich_nls1.2_res_df1$Residuals),
+  
+  #p-value calculation: null hypothesis is rho = 0.5
+ #t_test_statistic = (rho - rho_null)/se_rho
+  nls_resid_t_test =
+   (summary(Mtrich_nls1.2)$coefficients[1, 1] - 0.5)/ summary(Mtrich_nls1.2)$coefficients[1, 2],
+ 
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(Mtrich_nls1.2), lower.tail = FALSE)
+  )
+)
+
+jarque.test(Mtrich_nls1.2_res_df1$Residuals)
+
+(summary(Mtrich_nls1.2_res_df1$Residuals))
+
+#Jarque-Bera test for normality
+##Null hypothesis: data follows a normal distribution
+```
+#Store results for Expanded Rayleigh model 1 (M. trichosporium rep. B)
+```{r Mtrich_nls1.2_tb}
+#Define formula: Nls1.2 uses N_p instead of (1-f)*N_s0
+##Eq. (29)
+sim_formula_nls1.2 <- as.formula(delta_p ~ 0.5*(
+  (rho*`15N_p`/((0.5*N_p) - rho*`15N_p`)/R_std - 1)*1000 + 
+    delta_beta)
+  )
+
+#n = number of loops; in this case, n = 1 (1 replicate)
+n <- 1
+
+#m = number of models; in this case, m = 1 because we're only using one model (Expanded Rayleigh 1 = standard Rayleigh + nls1.2)
+
+m <- 1
+
+#Make empty table to store results
+Mtrich_nls1.2_tb <- blank_tb(n, m)
+
+Mtrich_nls1.2_tb <- mutate(Mtrich_nls1.2_tb,
+  Model = c(
+    "Expanded Rayleigh 1"
+  ),
+  
+  Data = c(
+    "M. trichosporium replicate B"
+)
+) 
+
+for (i in 1:n) {
+  
+  if(i == 1){
+    data <- Mtrich
+  } #else if(i == 2){
+    #data <- other_data
+  #}
+
+  #Apply nonlinear model 1.2 (sim_formula_nls1.2) (defined above)
+  nls1.2 <- nls(sim_formula_nls1.2, data = data,
+    start = list(rho = 0.500)
+)
+
+  #Add standard Rayleigh values for bulk delta_p to table
+    Mtrich_nls1.2_tb$Multiple_R_squared[i] = Mtrich_std_ray$Multiple_R_squared[i]
+    Mtrich_nls1.2_tb$RMSE_lm[i] = Mtrich_std_ray$RMSE_lm[i]
+  
+    Mtrich_nls1.2_tb$lm_delta_p_ncv[i] = Mtrich_std_ray$lm_delta_p_ncv[i]
+  
+    Mtrich_nls1.2_tb$f_min[i] = Mtrich_std_ray$f_min[i]
+    Mtrich_nls1.2_tb$f_max[i] = Mtrich_std_ray$f_max[i]
+
+    Mtrich_nls1.2_tb$delta_s0_meas[i] = Mtrich$delta_s0[1]
+    Mtrich_nls1.2_tb$se_delta_s0_meas[i] = "not reported"
+      
+    Mtrich_nls1.2_tb$delta_s0_calc[i] = Mtrich_std_ray$delta_s0_calc[i]
+    Mtrich_nls1.2_tb$se_delta_s0_calc[i] = Mtrich_std_ray$se_delta_s0_calc[i]
+  
+  #Add values from nls1.2 to table
+    Mtrich_nls1.2_tb$RMSE_nls[i] = rmse(nls1.2, data = data)
+    
+    Mtrich_nls1.2_tb$rho[i] = as.numeric(coef(nls1.2))
+    Mtrich_nls1.2_tb$se_rho[i] = summary(nls1.2)$coefficients[1,2]
+  
+    Mtrich_nls1.2_tb$tau[i] = mean(data %>% .$tau)
+    Mtrich_nls1.2_tb$se_tau[i] = std.error(data %>% .$tau)
+    
+  #Add standard Rayleigh values for bulk delta_p to table  
+    Mtrich_nls1.2_tb$epsilon_p[i] = Mtrich_std_ray$epsilon_p[i]
+    Mtrich_nls1.2_tb$se_epsilon_p[i] = Mtrich_std_ray$se_epsilon_p[i]
+    
+    Mtrich_nls1.2_tb$ff_p[i] = Mtrich_std_ray$ff_p[i]
+    Mtrich_nls1.2_tb$se_ff_p[i] = Mtrich_std_ray$se_ff_p[i]
+    
+  #Add values from nls1.2 to table
+    ## ff_alpha = (rho/tau)*ff_p
+    Mtrich_nls1.2_tb$ff_alpha[i] =
+      (Mtrich_nls1.2_tb$rho[i]/
+         Mtrich_nls1.2_tb$tau[i])*Mtrich_nls1.2_tb$ff_p[i]
+    
+    ##se_ff_alpha = sqrt((ff_p/tau*se_rho)^2 + (-rho*ff_p/tau^2*se_tau)^2+ (rho/tau*se_ff_p)^2)
+    Mtrich_nls1.2_tb$se_ff_alpha[i] =
+      sqrt((Mtrich_nls1.2_tb$ff_p[i]/Mtrich_nls1.2_tb$tau[i]*Mtrich_nls1.2_tb$se_rho[i])^2 + (-Mtrich_nls1.2_tb$rho[i]*Mtrich_nls1.2_tb$ff_p[i]/Mtrich_nls1.2_tb$tau[i]^2*Mtrich_nls1.2_tb$se_tau[i])^2+ (Mtrich_nls1.2_tb$rho[i]/Mtrich_nls1.2_tb$tau[i]*Mtrich_nls1.2_tb$se_ff_p[i])^2)
+    
+    ##ff_beta = (1-rho)/(1-tau)*ff_p
+    Mtrich_nls1.2_tb$ff_beta[i] = (1-Mtrich_nls1.2_tb$rho[i])/
+      (1-Mtrich_nls1.2_tb$tau[i])*Mtrich_nls1.2_tb$ff_p[i]
+    
+    
+    ##se_ff_beta = sqrt((-ff_p/(1-tau)*se_rho)^2 + ((1-rho)*ff_p/(1-tau)^2*se_tau)^2 + ((1-rho)/(1-tau)*se_ff_p)^2)
+    Mtrich_nls1.2_tb$se_ff_beta[i] = sqrt((-Mtrich_nls1.2_tb$ff_p[i]/(1-Mtrich_nls1.2_tb$tau[i])*Mtrich_nls1.2_tb$se_rho[i])^2 + ((1-Mtrich_nls1.2_tb$rho[i])*Mtrich_nls1.2_tb$ff_p[i]/(1-Mtrich_nls1.2_tb$tau[i])^2*Mtrich_nls1.2_tb$se_tau[i])^2 + ((1-Mtrich_nls1.2_tb$rho[i])/(1-Mtrich_nls1.2_tb$tau[i])*Mtrich_nls1.2_tb$se_ff_p[i])^2)   
+ 
+    ##epsilon_alpha = 1000*ff_alpha
+    Mtrich_nls1.2_tb$epsilon_alpha[i] =
+      1000*(Mtrich_nls1.2_tb$ff_alpha[i] - 1)
+    
+    ##se_epsilon_alpha = 1000*se_ff_alpha
+    Mtrich_nls1.2_tb$se_epsilon_alpha[i] = 1000*Mtrich_nls1.2_tb$se_ff_alpha[i]
+    
+    ##epsilon_beta = 1000*(ff_beta -1)
+    Mtrich_nls1.2_tb$epsilon_beta[i] = 1000*(Mtrich_nls1.2_tb$ff_beta[i] -1)
+    
+    ##se_epsilon_beta = 1000*se_ff_beta
+    Mtrich_nls1.2_tb$se_epsilon_beta[i] = 1000*Mtrich_nls1.2_tb$se_ff_beta[i]
+    
+    ##KIE = 1/ff
+    ##se_KIE = abs(-1/(ff)^2*se_ff)
+    Mtrich_nls1.2_tb$KIE_p[i] = 1/Mtrich_nls1.2_tb$ff_p[i]
+    Mtrich_nls1.2_tb$se_KIE_p[i] = abs(-1/(Mtrich_nls1.2_tb$ff_p[i])^2*Mtrich_nls1.2_tb$se_ff_p[i])
+    
+    Mtrich_nls1.2_tb$KIE_alpha[i] = 1/Mtrich_nls1.2_tb$ff_alpha[i]
+    Mtrich_nls1.2_tb$se_KIE_alpha[i] = abs(-1/(Mtrich_nls1.2_tb$ff_alpha[i])^2*Mtrich_nls1.2_tb$se_ff_alpha[i])
+    
+    Mtrich_nls1.2_tb$KIE_beta[i] = 1/Mtrich_nls1.2_tb$ff_beta[i]
+    Mtrich_nls1.2_tb$se_KIE_beta[i] = abs(-1/(Mtrich_nls1.2_tb$ff_beta[i])^2*Mtrich_nls1.2_tb$se_ff_beta[i])
+
+}
+
+(Mtrich_nls1.2_tb)
+```
+
+#Nonlinear model 2.2 (nls2.2) applied to M. trichosporium replicate B.
+
+Use nonlinear model to determine rho
+
+nls2.2: delta_p = 0.5*(delta_alpha + delta_beta) where delta_beta is replaced by the rho equation (but delta_alpha is not) and N_p is used as a variable instead of (1-f)*N_so
+```{r Mtrich_nls2.2}
+#Define formula: Nls2.2 uses N_p instead of (1-f)*N_s0
+sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
+  delta_alpha +
+  ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
+  )
+
+preview(sim_formula_nls2.2, data = Mtrich,
+        start = list(rho = 0.5), variable = 23)
+
+Mtrich_nls2.2 <- nls(sim_formula_nls2.2, data = Mtrich,
+    start = list(rho = 0.5)
+)
+
+overview(Mtrich_nls2.2)
+
+(rmse(Mtrich_nls2.2, data = Mtrich))
+```
+
+#Plot predicted values (in red, nls2.2) and actual experimental values (gray) (M. trichosporium rep. B)
+```{r predict_Mtrich_nls2.2}
+Mtrich <- Mtrich %>%
+  dplyr::mutate(delta_p_pred_nls2.2 = predict(Mtrich_nls2.2))
+
+ggplot(data = Mtrich, mapping = 
+         aes(x = one_minus_f))+
+  geom_point(mapping = aes(y = delta_p), color = "gray",
+             shape = 1)+
+  geom_point(mapping = aes(y = delta_p_pred_nls2.2), color = "red",
+             shape = 3)+
+  xlab("1-f")+ ylab("delta_p")+ ggtitle("M. trichosporium Rep. B nls2.2")+
+  xlim(0, 1)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+
+```
+
+##Assess the goodness of fit through residuals for nls2.2 (M. trichosporium rep. B)
+
+Use nlsResiduals() to extract residuals from the nls object, and use plot() to visualize the results.
+```{r Mtrich_nls2.2_res}
+Mtrich_nls2.2_res <- nlsResiduals(Mtrich_nls2.2)
+
+plot(Mtrich_nls2.2_res)
+```
+
+#Plot residuals for nls2.2 as histogram, assess the distribution, and calculate p-value for rho (M. trichosporium rep. B)
+```{r Mtrich_nls2.2_res_hist}
+
+Mtrich_nls2.2_res_df1 <- as.data.frame(Mtrich_nls2.2_res$resi1) 
+
+hist(Mtrich_nls2.2_res_df1$Residuals)
+
+(Mtrich_nls2.2_res_df2 <- tibble(
+  min = min(Mtrich_nls2.2_res_df1$Residuals),
+  max = max(Mtrich_nls2.2_res_df1$Residuals),
+  sd = sd(Mtrich_nls2.2_res_df1$Residuals), #sample standard deviation
+  skewness = skewness(Mtrich_nls2.2_res_df1$Residuals),
+  kurtosis = kurtosis(Mtrich_nls2.2_res_df1$Residuals),
+  
+  #p-value calculation: null hypothesis is rho = 0.5
+ #t_test_statistic = (rho - rho_null)/se_rho
+  nls_resid_t_test =
+   (summary(Mtrich_nls2.2)$coefficients[1, 1] - 0.5)/ summary(Mtrich_nls2.2)$coefficients[1, 2],
+ 
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(Mtrich_nls2.2), lower.tail = FALSE)
+  )
+)
+
+jarque.test(Mtrich_nls2.2_res_df1$Residuals)
+
+(summary(Mtrich_nls2.2_res_df1$Residuals))
+
+#Jarque-Bera test for normality
+##Null hypothesis: data follows a normal distribution
+```
+
+#Store results for Expanded Rayleigh model 2 (M. trichosporium rep. B)
+```{r Mtrich_nls2.2_tb}
+#Define formula: nls2.2 uses N_p instead of (1-f)*N_s0
+sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
+  delta_alpha +
+  ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
+  )
+
+#n = number of loops; in this case, n = 1 (1 replicate)
+n <- 1
+
+#m = number of models; in this case, m = 1 because we're only using one model (Expanded Rayleigh 1 = standard Rayleigh + nls2.2)
+
+m <- 1
+
+#Make empty table to store results
+Mtrich_nls2.2_tb <- blank_tb(n, m)
+
+Mtrich_nls2.2_tb <- mutate(Mtrich_nls2.2_tb,
+  Model = c(
+    "Expanded Rayleigh 2"
+  ),
+  
+  Data = c(
+    "M. trichosporium replicate B"
+)
+) 
+
+for (i in 1:n) {
+  
+  if(i == 1){
+    data <- Mtrich
+  } #else if(i == 2){
+    #data <- other_data
+  #}
+
+  #Apply nonlinear model 1.2 (sim_formula_nls2.2) (defined above)
+  nls2.2 <- nls(sim_formula_nls2.2, data = data,
+    start = list(rho = 0.500)
+)
+
+  #Add standard Rayleigh values for bulk delta_p to table
+    Mtrich_nls2.2_tb$Multiple_R_squared[i] = Mtrich_std_ray$Multiple_R_squared[i]
+    Mtrich_nls2.2_tb$RMSE_lm[i] = Mtrich_std_ray$RMSE_lm[i]
+  
+    Mtrich_nls2.2_tb$lm_delta_p_ncv[i] = Mtrich_std_ray$lm_delta_p_ncv[i]
+  
+    Mtrich_nls2.2_tb$f_min[i] = Mtrich_std_ray$f_min[i]
+    Mtrich_nls2.2_tb$f_max[i] = Mtrich_std_ray$f_max[i]
+    
+    Mtrich_nls2.2_tb$delta_s0_meas[i] = Mtrich$delta_s0[1]
+    Mtrich_nls2.2_tb$se_delta_s0_meas[i] = "not reported"    
+  
+    Mtrich_nls2.2_tb$delta_s0_calc[i] = Mtrich_std_ray$delta_s0_calc[i]
+    Mtrich_nls2.2_tb$se_delta_s0_calc[i] = Mtrich_std_ray$se_delta_s0_calc[i]
+  
+  #Add values from nls2.2 to table
+    Mtrich_nls2.2_tb$RMSE_nls[i] = rmse(nls2.2, data = data)
+    
+    Mtrich_nls2.2_tb$rho[i] = as.numeric(coef(nls2.2))
+    Mtrich_nls2.2_tb$se_rho[i] = summary(nls2.2)$coefficients[1,2]
+  
+    Mtrich_nls2.2_tb$tau[i] = mean(data %>% .$tau)
+    Mtrich_nls2.2_tb$se_tau[i] = std.error(data %>% .$tau)
+    
+  #Add standard Rayleigh values for bulk delta_p to table  
+    Mtrich_nls2.2_tb$epsilon_p[i] = Mtrich_std_ray$epsilon_p[i]
+    Mtrich_nls2.2_tb$se_epsilon_p[i] = Mtrich_std_ray$se_epsilon_p[i]
+    
+    Mtrich_nls2.2_tb$ff_p[i] = Mtrich_std_ray$ff_p[i]
+    Mtrich_nls2.2_tb$se_ff_p[i] = Mtrich_std_ray$se_ff_p[i]
+    
+  #Add values from nls2.2 to table
+    ## ff_alpha = (rho/tau)*ff_p
+    Mtrich_nls2.2_tb$ff_alpha[i] =
+      (Mtrich_nls2.2_tb$rho[i]/
+         Mtrich_nls2.2_tb$tau[i])*Mtrich_nls2.2_tb$ff_p[i]
+    
+    ##se_ff_alpha = sqrt((ff_p/tau*se_rho)^2 + (-rho*ff_p/tau^2*se_tau)^2+ (rho/tau*se_ff_p)^2)
+    Mtrich_nls2.2_tb$se_ff_alpha[i] =
+      sqrt((Mtrich_nls2.2_tb$ff_p[i]/Mtrich_nls2.2_tb$tau[i]*Mtrich_nls2.2_tb$se_rho[i])^2 + (-Mtrich_nls2.2_tb$rho[i]*Mtrich_nls2.2_tb$ff_p[i]/Mtrich_nls2.2_tb$tau[i]^2*Mtrich_nls2.2_tb$se_tau[i])^2+ (Mtrich_nls2.2_tb$rho[i]/Mtrich_nls2.2_tb$tau[i]*Mtrich_nls2.2_tb$se_ff_p[i])^2)
+    
+    ##ff_beta = (1-rho)/(1-tau)*ff_p
+    Mtrich_nls2.2_tb$ff_beta[i] = (1-Mtrich_nls2.2_tb$rho[i])/
+      (1-Mtrich_nls2.2_tb$tau[i])*Mtrich_nls2.2_tb$ff_p[i]
+    
+    
+    ##se_ff_beta = sqrt((-ff_p/(1-tau)*se_rho)^2 + ((1-rho)*ff_p/(1-tau)^2*se_tau)^2 + ((1-rho)/(1-tau)*se_ff_p)^2)
+    Mtrich_nls2.2_tb$se_ff_beta[i] = sqrt((-Mtrich_nls2.2_tb$ff_p[i]/(1-Mtrich_nls2.2_tb$tau[i])*Mtrich_nls2.2_tb$se_rho[i])^2 + ((1-Mtrich_nls2.2_tb$rho[i])*Mtrich_nls2.2_tb$ff_p[i]/(1-Mtrich_nls2.2_tb$tau[i])^2*Mtrich_nls2.2_tb$se_tau[i])^2 + ((1-Mtrich_nls2.2_tb$rho[i])/(1-Mtrich_nls2.2_tb$tau[i])*Mtrich_nls2.2_tb$se_ff_p[i])^2)   
+ 
+    ##epsilon_alpha = 1000*ff_alpha
+    Mtrich_nls2.2_tb$epsilon_alpha[i] =
+      1000*(Mtrich_nls2.2_tb$ff_alpha[i] - 1)
+    
+    ##se_epsilon_alpha = 1000*se_ff_alpha
+    Mtrich_nls2.2_tb$se_epsilon_alpha[i] = 1000*Mtrich_nls2.2_tb$se_ff_alpha[i]
+    
+    ##epsilon_beta = 1000*(ff_beta -1)
+    Mtrich_nls2.2_tb$epsilon_beta[i] = 1000*(Mtrich_nls2.2_tb$ff_beta[i] -1)
+    
+    ##se_epsilon_beta = 1000*se_ff_beta
+    Mtrich_nls2.2_tb$se_epsilon_beta[i] = 1000*Mtrich_nls2.2_tb$se_ff_beta[i]
+    
+    ##KIE = 1/ff
+    ##se_KIE = abs(-1/(ff)^2*se_ff)
+    Mtrich_nls2.2_tb$KIE_p[i] = 1/Mtrich_nls2.2_tb$ff_p[i]
+    Mtrich_nls2.2_tb$se_KIE_p[i] = abs(-1/(Mtrich_nls2.2_tb$ff_p[i])^2*Mtrich_nls2.2_tb$se_ff_p[i])
+    
+    Mtrich_nls2.2_tb$KIE_alpha[i] = 1/Mtrich_nls2.2_tb$ff_alpha[i]
+    Mtrich_nls2.2_tb$se_KIE_alpha[i] = abs(-1/(Mtrich_nls2.2_tb$ff_alpha[i])^2*Mtrich_nls2.2_tb$se_ff_alpha[i])
+    
+    Mtrich_nls2.2_tb$KIE_beta[i] = 1/Mtrich_nls2.2_tb$ff_beta[i]
+    Mtrich_nls2.2_tb$se_KIE_beta[i] = abs(-1/(Mtrich_nls2.2_tb$ff_beta[i])^2*Mtrich_nls2.2_tb$se_ff_beta[i])
+
+}
+
+(Mtrich_nls2.2_tb)
+```
+
+#Combine standard Rayleigh and Expanded Rayleigh tables to make a summary table
+```{r Mtrich_summary}
+
+(Mtrich_summary <- 
+
+  rbind(
+  Mtrich_std_ray, #standard Rayleigh applied to delta_p, delta_alpha, and delta_beta
+  Mtrich_nls1.2_tb, #Expanded Rayleigh 1 (std. Rayleigh: delta_p; nls1.2: delta_alpha and delta_beta
+  Mtrich_nls2.2_tb #Expanded Rayleigh 2 (std. Rayleigh; delta_p; nls2.2: delta_alpha and delta_beta
+)
+)
+
+write.csv(Mtrich_summary, here("data/output/exp_hydroxylamine_ox/Mtrich_summary.csv"), row.names = TRUE)
+```
+
+#Mtrich_summary_2: Paste mean +/- standard error (Expanded Rayleigh only)
+
+##Table 5 is a subset of this table.
+
+##Table S15 is a subset of this table.
+
+When the .csv file is opened in Excel, a funky symbol is included with the +/- symbol, but that can be removed with find and replace.
+```{r Mtrich_summary_2}
+
+#Mtrich_summary_2 <- Mtrich_summary[2:4, ]
+
+(Mtrich_summary_2 <- Mtrich_summary %>% mutate(
+  Multiple_R_squared =
+    paste(round(as.numeric(Mtrich_summary$Multiple_R_squared), 2)),
+  
+  RMSE_lm =
+    paste(round(as.numeric(Mtrich_summary$RMSE_lm), 2) 
+  ),
+  
+  lm_delta_p_ncv =
+    paste(round(as.numeric(Mtrich_summary$lm_delta_p_ncv), 2) 
+  ),  
+  
+  RMSE_nls = c(paste(Mtrich_summary$RMSE_nls[1]),
+    paste(round(as.numeric(Mtrich_summary$RMSE_nls[2:3]), 2)
+  )
+  ),
+  
+  f_min = 
+    paste(round(as.numeric(Mtrich_summary$f_min), 2)
+  ),
+  
+  f_max = 
+    paste(round(as.numeric(Mtrich_summary$f_max), 2)
+  ),
+
+  delta_s0_meas =
+    paste(round(as.numeric(Mtrich_summary$delta_s0_meas), 1)),
+  
+  delta_s0_calc = c(
+    paste(round(as.numeric(Mtrich_summary$delta_s0_calc), 1), "\u00B1", round(as.numeric(Mtrich_summary$se_delta_s0_calc), 1))
+  ),
+  
+  rho = c(paste(Mtrich_summary$rho[1]),
+    paste(round(as.numeric(Mtrich_summary$rho[2:3]), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_rho[2:3]), 4)
+  )
+  ),
+
+  tau = c(paste(Mtrich_summary$tau[1]),
+    paste(round(as.numeric(Mtrich_summary$tau[2:3]), 5), "\u00B1", round(as.numeric(Mtrich_summary$se_tau[2:3]), 8)
+  )
+  ),
+   
+  epsilon_p = c(
+    paste(round(as.numeric(Mtrich_summary$epsilon_p), 2), "\u00B1", round(as.numeric(Mtrich_summary$se_epsilon_p), 2))
+  ),  
+  
+  epsilon_alpha = c(
+    paste(round(as.numeric(Mtrich_summary$epsilon_alpha), 2), "\u00B1", round(as.numeric(Mtrich_summary$se_epsilon_alpha), 2))
+  ),  
+  
+  epsilon_beta = c(
+    paste(round(as.numeric(Mtrich_summary$epsilon_beta), 2), "\u00B1", round(as.numeric(Mtrich_summary$se_epsilon_beta), 2))
+  ),  
+
+  ff_p = c(
+    paste(round(as.numeric(Mtrich_summary$ff_p), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_ff_p), 4))
+  ),
+  
+  ff_alpha = c(
+    paste(round(as.numeric(Mtrich_summary$ff_alpha), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_ff_alpha), 4))
+  ),  
+  
+  ff_beta = c(
+    paste(round(as.numeric(Mtrich_summary$ff_beta), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_ff_beta), 4))
+  ),
+  
+  KIE_p = c(
+    paste(round(as.numeric(Mtrich_summary$KIE_p), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_KIE_p), 4))
+  ),
+  
+  KIE_alpha = c(
+    paste(round(as.numeric(Mtrich_summary$KIE_alpha), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_KIE_alpha), 4))
+  ),  
+  
+  KIE_beta = c(
+    paste(round(as.numeric(Mtrich_summary$KIE_beta), 4), "\u00B1", round(as.numeric(Mtrich_summary$se_KIE_beta), 4))
+  ),
+  
+)%>%
+    select(-se_delta_s0_meas, -se_delta_s0_calc, -se_rho, -se_tau, -se_epsilon_p, -se_epsilon_alpha, -se_epsilon_beta, -se_ff_p, -se_ff_alpha, -se_ff_beta, -se_KIE_p, -se_KIE_alpha, -se_KIE_beta)
+)
+
+write.csv(Mtrich_summary_2, here("data/output/exp_hydroxylamine_ox/Mtrich_summary_2.csv"), row.names = TRUE)
+```

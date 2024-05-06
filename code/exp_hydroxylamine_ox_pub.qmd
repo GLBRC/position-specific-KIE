@@ -196,7 +196,7 @@ Mtrich_tidy_accum$delta_15N <- factor(Mtrich_tidy_accum$delta_15N, levels = c("d
   #format axis titles
   theme(axis.title = element_text(size = 16))+
   theme(axis.text = element_text(size = 16))+
-  xlab(expression(paste(bold("Fraction Reduced (1-"), italic("f"), bold(")"))))+
+  xlab(expression(paste(bold("Fraction Consumed (1-"), italic("f"), bold(")"))))+
   ylab(expression(paste(bold(delta^15),bold(N),bold(" (\u2030)"),sep="")))+
   
   #format plot title

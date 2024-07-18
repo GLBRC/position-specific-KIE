@@ -201,7 +201,7 @@ for (i in 1:nrow(delta_s0_test3)) {
   `-flnf/(1-f)` = -f*log(f)/(1-f),
   epsilon_bulk = -20,
   N_s0 = 10000,
-  R_std = 0.003663,
+  R_std = 0.0036765,
   rho = 0.5050,
   N_s = f*N_s0,
   #Calculate delta_s and delta_p w/ the usual approx to double-check
@@ -410,7 +410,7 @@ for (i in 1:nrow(delta_s0_test4)) {
   `-flnf/(1-f)` = -f*log(f)/(1-f),
   epsilon_bulk = -20,
   N_s0 = 10000,
-  R_std = 0.003663,
+  R_std = 0.0036765,
   rho = 0.5050,
   N_s = f*N_s0,
   #Calculate delta_s and delta_p w/ the usual approx to double-check
@@ -615,7 +615,7 @@ for (i in 1:nrow(epsilon_test2)) {
   `-flnf/(1-f)` = -f*log(f)/(1-f),
   delta_s0 = 0,
   N_s0 = 10000,
-  R_std = 0.003663,
+  R_std = 0.0036765,
   rho = 0.5050,
   N_s = f*N_s0,
   #Calculate delta_s and delta_p w/ the usual approx to double-check
@@ -824,7 +824,7 @@ for (i in 1:nrow(epsilon_test3)) {
   `-flnf/(1-f)` = -f*log(f)/(1-f),
   delta_s0 = 0,
   N_s0 = 10000,
-  R_std = 0.003663,
+  R_std = 0.0036765,
   rho = 0.5050,
   N_s = f*N_s0,
   #Calculate delta_s and delta_p w/ the usual approx to double-check

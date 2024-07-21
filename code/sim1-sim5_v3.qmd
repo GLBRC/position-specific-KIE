@@ -81,7 +81,7 @@ d1 <- tibble(
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   
   #Calculate values for substrate and bulk N
   ##Use standard Rayleigh model
@@ -265,7 +265,7 @@ d2 <- tibble(
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   rho = 0.505,
   
   #Calculate values for substrate and bulk N
@@ -424,7 +424,7 @@ d3 <- tibble(
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   rho = 0.52,
   
   #Calculate values for substrate and bulk N
@@ -586,7 +586,7 @@ d4 <- tibble(
   epsilon_bulk = 20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   rho = 0.505,
   
   #Calculate values for substrate and bulk N
@@ -752,7 +752,7 @@ d5 <- tibble(
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   
   #Calculate values for substrate and bulk N
   ##Use standard Rayleigh model  

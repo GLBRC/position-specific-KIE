@@ -86,7 +86,7 @@ sim3 <- tibble(
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000, #Initial nmol of substrate for simulated experiment
-  R_std = 0.003663, #R value for atmospheric N
+  R_std = 0.0036765, #R value for atmospheric N
   rho = 0.52,
   
   #Calculate values for substrate and bulk N
@@ -590,10 +590,10 @@ sim3_e1 <- sim3_e1 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -1034,10 +1034,10 @@ sim3_e2 <- sim3_e2 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -1460,10 +1460,10 @@ sim3_e3 <- sim3_e3 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -1908,10 +1908,10 @@ sim3_e4 <- sim3_e4 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -2347,10 +2347,10 @@ sim3_e5 <- sim3_e5 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -2787,10 +2787,10 @@ sim3_e6 <- sim3_e6 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -3221,10 +3221,10 @@ sim3_e7 <- sim3_e7 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -3661,10 +3661,10 @@ sim3_e8 <- sim3_e8 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -4102,10 +4102,10 @@ sim3_e9 <- sim3_e9 %>%  mutate(
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         
         #Add R values, etc, for nonlinear modeling (nls1 and nls2)
-        R_std = 0.003663,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_std = 0.0036765,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
@@ -5027,8 +5027,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 1460
@@ -5079,13 +5079,13 @@ data <- data %>%
          delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f,
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -5699,8 +5699,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 #n = 1470
@@ -5754,13 +5754,13 @@ mutate(
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -6386,8 +6386,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 1415
@@ -6438,13 +6438,13 @@ mutate(
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -7070,8 +7070,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 2190
@@ -7120,13 +7120,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -7745,8 +7745,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 2100
@@ -7796,13 +7796,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -8420,8 +8420,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 2000
@@ -8470,13 +8470,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -9094,8 +9094,8 @@ sim_formula_nls2.2 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 #n = 1457
@@ -9146,13 +9146,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -9770,8 +9770,8 @@ sim_formula_nls2.1 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 2100
@@ -9820,13 +9820,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,
@@ -10444,8 +10444,8 @@ sim_formula_nls2.1 <- as.formula(delta_p ~ 0.5*(
   ((1-rho)*`15N_p`/((0.5*N_p) - (1-rho)*`15N_p`)/R_std -1)*1000)
   )
 
-#R_std for atmospheric N2 = 0.3663 +/- 0.004 atom 15N% = 0.003663
-R_std = 0.003663
+#R_std for atmospheric N2 = 0.0036765
+R_std = 0.0036765
 
 # n = number of times simulation is repeated (loops)
 n = 2000
@@ -10494,13 +10494,13 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
         delta_beta = 2*delta_p - delta_alpha,
         delta_s = (delta_s0 - (1-f)*delta_p)/f, #rearranged mass-balance equation
         SP = delta_alpha - delta_beta,
-        R_p = (delta_p/1000 + 1)*0.003663,
-        R_alpha = (delta_alpha/1000 + 1)*0.003663,
-        R_beta = (delta_beta/1000 + 1)*0.003663,
+        R_p = (delta_p/1000 + 1)*0.0036765,
+        R_alpha = (delta_alpha/1000 + 1)*0.0036765,
+        R_beta = (delta_beta/1000 + 1)*0.0036765,
         N_p = one_minus_f*N_s0,
         `14N_p` = N_p/(1 + R_p),
         `15N_p` = R_p*`14N_p`,
-        R_std = 0.003663,
+        R_std = 0.0036765,
         N_alpha = 0.5*(1 - f)*N_s0,
         `14N_alpha` = 0.5*N_p/(1 + R_alpha),
         `15N_alpha` = R_alpha*`14N_alpha`,

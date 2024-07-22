@@ -93,7 +93,7 @@ mutate(
  delta_beta = delta_alpha - SP,
  
 #Add more values for Expanded Rayleigh model
- R_std = 0.003663,
+ R_std = 0.0036765,
  R_p = (delta_p/1000 + 1)*R_std,
  R_alpha = (delta_alpha/1000 + 1)*R_std,
  R_beta = (delta_beta/1000 + 1)*R_std,
@@ -106,6 +106,8 @@ mutate(
 
 #Filter out "time_0" data
 Mtrich <- Mtrich_all %>% filter(replicate == "B")
+
+(Mtrich)
 ```
 
 #Name linear regression models for standard Rayleigh plots of M. trichosporium replicate B.

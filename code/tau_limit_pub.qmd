@@ -117,7 +117,7 @@ for (i in 1:nrow(tau_tb3)) {
   epsilon_bulk = -20,
   delta_s0 = 0,
   N_s0 = 10000,
-  R_std = 0.003663,
+  R_std = 0.0036765,
   N_s = f*N_s0,
   delta_s = delta_s0 + epsilon_bulk*log(f),
   delta_p = delta_s0 - epsilon_bulk*(f*log(f)/(1 - f)),

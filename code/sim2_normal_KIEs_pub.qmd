@@ -155,7 +155,7 @@ table_s5 <- sim2_tb2 %>% select(
   replicate, f, delta_s, delta_p, delta_alpha, delta_beta, N_p, `14N_p`, `15N_p`, `14N_alpha`, `15N_alpha`
 ) 
 
-write.csv(table_s5, here("data/output/sim2/table_s4.csv"), row.names = FALSE)
+write.csv(table_s5, here("data/output/sim2/table_s5.csv"), row.names = FALSE)
 ```
 
 

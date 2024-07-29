@@ -789,6 +789,373 @@ P450_C_lm_rho <- lm(rho ~ `-flnf/(1-f)`, data = filter(P450, replicate == "C"))
 summary(P450_C_lm_rho)
 ```
 
+#Apply the standard Rayleigh model to each individual observation (P450).
+
+##Calculate `epsilon_alpha` and `epsilon_beta` for each value of f.
+
+Calculating `epsilon_alpha` and `epsilon_beta` for each individual observation will allow us to better compare application of the standard and Expanded Rayleigh models. For the Expanded Rayleigh model, position-specific values are calculated for each individual observation (see below).
+
+Values of $\alpha$~N-$\alpha$~ and $\alpha$~N-$\beta$~ for early and late observations can be averaged to determine the upper and lower limits of fractionation factors/KIEs for N^$\alpha$^ and N^$\beta$^.
+
+##To determine epsilon for an individual observation, solve Eq. (2) for epsilon:
+
+$${\epsilon}_{p/s }= -({\delta}_p - (intercept))/((f*ln(f))/(1-f))$$
+where 'intercept' is the y-intercept for the standard Rayleigh model where x ='-flnf/(1-f)' and y = delta_p (delta_bulk), delta_alpha, or delta_beta.
+
+To determine the y-intercept, apply the standard Rayleigh model (linear regression) to all observations from the appropriate replicate. Then use the appropriate delta value and f value from a single observation to calculation the epsilon value for that observation.
+```{r P450_Ray_sep_obs}
+#n = number of loops; in this case, the number of individual observations (39)
+n = 39
+
+#m = number of models; in this case, m = 1 because we're only using one model (standard Rayleigh)
+
+m <- 1
+
+#Apply standard Rayleigh model where x = `-flnf/(1-f)` and y = delta_p to determine delta_s0 for replicates A, B, and C
+
+#Replicate A
+P450_A_lm_delta_p <- lm(
+  delta_p ~ `-flnf/(1-f)`, data = filter(P450, replicate == "A")
+)
+
+#Replicate B
+P450_B_lm_delta_p <- lm(
+  delta_p ~ `-flnf/(1-f)`, data = filter(P450, replicate == "B")
+)
+
+#Replicate C
+P450_C_lm_delta_p <- lm(
+  delta_p ~ `-flnf/(1-f)`, data = filter(P450, replicate == "C")
+)
+
+#Make empty table to store results
+P450_Ray_sep_obs <- blank_P450_tb(n, m)
+
+names <- P450$name
+
+P450_Ray_sep_obs <- mutate(P450_Ray_sep_obs,
+  Model = c(
+    "Expanded Rayleigh"
+  ),
+  Data = P450$name,
+  Replicate = c(
+    rep("A", each = sum(P450$replicate == "A")),
+    rep("B", each = sum(P450$replicate == "B")),
+    rep("C", each = sum(P450$replicate == "C"))
+  ),
+  
+  Time_min = P450$Time_min,
+  
+  #Add f values to final table
+  f = P450$f,
+  one_minus_f = P450$one_minus_f,
+  `-flnf/(1-f)` = P450$`-flnf/(1-f)`,
+  
+  #Add delta_p, delta_alpha, and delta_beta values to table
+  delta_p = P450$delta_p,
+  delta_alpha = P450$delta_alpha,
+  delta_beta = P450$delta_beta,
+  
+  #Add delta_s0 and se_delta_s0 values (delta_s0 is the intercept for linear regression of the standard Rayleigh equation where y = delta_p)
+  delta_s0_calc = c(
+    rep(summary(P450_A_lm_delta_p)$coefficients[1,1], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_p)$coefficients[1,1], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_p)$coefficients[1,1], each = sum(P450$replicate == "C"))  
+  ),
+  
+  se_delta_s0_calc = c(
+    rep(summary(P450_A_lm_delta_p)$coefficients[1,2], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_p)$coefficients[1,2], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_p)$coefficients[1,2], each = sum(P450$replicate == "C"))
+  ),
+  
+  #Add the y-intercept for linear regression of delta_alpha (standard Rayleigh model applied to data from individual replicates)
+    y_icpt_alpha = c(
+    rep(summary(P450_A_lm_delta_alpha)$coefficients[1,1], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_alpha)$coefficients[1,1], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_alpha)$coefficients[1,1], each = sum(P450$replicate == "C"))  
+  ),
+  
+  se_y_icpt_alpha = c(
+    rep(summary(P450_A_lm_delta_alpha)$coefficients[1,2], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_alpha)$coefficients[1,2], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_alpha)$coefficients[1,2], each = sum(P450$replicate == "C"))
+  ),
+  
+    #Add the y-intercept for linear regression of delta_beta (standard Rayleigh model applied to data from individual replicates)
+    y_icpt_beta = c(
+    rep(summary(P450_A_lm_delta_beta)$coefficients[1,1], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_beta)$coefficients[1,1], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_beta)$coefficients[1,1], each = sum(P450$replicate == "C"))  
+  ),
+  
+  se_y_icpt_beta = c(
+    rep(summary(P450_A_lm_delta_beta)$coefficients[1,2], each = sum(P450$replicate == "A")),
+    rep(summary(P450_B_lm_delta_beta)$coefficients[1,2], each = sum(P450$replicate == "B")),
+    rep(summary(P450_C_lm_delta_beta)$coefficients[1,2], each = sum(P450$replicate == "C"))
+  ),
+  
+  #Apply standard Rayleigh model to each individual observation where x = `-flnf/(1-f)` and y = delta_p, delta_alpha, or delta_beta
+  
+  ##Instead of using linear regression, solve Eq. (2) for epsilon_bulk. Use the delta_s0 value obtained via linear regression of all observations in the appropriate replicate.
+  
+  ## epsilon_p = -(delta_p - delta_s0)/((f*ln(f))/(1-f))
+  epsilon_p = -(delta_p - delta_s0_calc)/(f*log(f)/(1-f)),
+    
+  epsilon_alpha = -(delta_alpha - y_icpt_alpha)/(f*log(f)/(1-f)),
+    
+  epsilon_beta = -(delta_beta - y_icpt_beta)/(f*log(f)/(1-f))
+) 
+
+for (i in 1:n) {
+  
+  #Define `j` to set up the replicates correctly
+  if(i <= sum(P450$replicate == "A")) {
+    j = 1 #Replicate A
+  } else if(i > sum(P450$replicate == "A")
+            & i <= sum(P450$replicate == "A") + sum(P450$replicate == "B")) {
+    j = 2 #Replicate B
+  } else if (i > sum(P450$replicate == "A") + sum(P450$replicate == "B")) {
+    j = 3 #Replicate C
+  }
+  
+  data <- filter(P450, name == names[i])
+  
+  #Add standard Rayleigh values for bulk delta_p to table
+  ##Most values are NA because linear regression wasn't used to determine epsilon_p
+    P450_Ray_sep_obs$Multiple_R_squared[i] = "NA"
+    P450_Ray_sep_obs$RMSE_lm[i] = "NA"
+  
+    P450_Ray_sep_obs$lm_delta_p_ncv[i] = "NA"
+  
+    P450_Ray_sep_obs$f_min[i] = "NA"
+    P450_Ray_sep_obs$f_max[i] = "NA"
+
+    P450_Ray_sep_obs$delta_s0_meas[i] = "NA"
+    P450_Ray_sep_obs$se_delta_s0_meas[i] = "NA"
+  
+  #Add RMSE_nls (NA in this case -  no nonlinear modeling)
+    P450_Ray_sep_obs$RMSE_nls[i] = "NA"
+    
+  #No rho or tau calculations for the standard Rayleigh model
+    P450_Ray_sep_obs$rho[i] = "NA"
+    P450_Ray_sep_obs$se_rho[i] = "NA"
+  
+    P450_Ray_sep_obs$tau[i] = "NA"
+    P450_Ray_sep_obs$se_tau[i] = "NA"
+    
+  #Add standard Rayleigh values for bulk delta_p to table  
+    P450_Ray_sep_obs$se_epsilon_p[i] = "NA"
+    
+    P450_Ray_sep_obs$ff_p[i] =  1 + P450_Ray_sep_obs$epsilon_p[i]/1000
+    P450_Ray_sep_obs$se_ff_p[i] = "NA"
+    
+  #Convert standard Rayleigh epsilon_alpha and epsilon_beta values (calculated for each individual observation) to ff_alpha and ff_beta
+    
+    ##se_epsilon = 1000*se_ff
+    ##no standard error calcs for values calculated from individual observations
+    
+    P450_Ray_sep_obs$ff_alpha[i] = 1 + P450_Ray_sep_obs$epsilon_alpha[i]/1000
+    
+    P450_Ray_sep_obs$se_ff_alpha[i] = "NA"
+    
+    P450_Ray_sep_obs$ff_beta[i] = 1 + P450_Ray_sep_obs$epsilon_beta[i]/1000
+    
+    P450_Ray_sep_obs$se_ff_beta[i] = "NA" 
+ 
+    P450_Ray_sep_obs$se_epsilon_alpha[i] = "NA"
+    
+    P450_Ray_sep_obs$se_epsilon_beta[i] = "NA"
+    
+    ##KIE = 1/ff
+    ##se_KIE = abs(-1/(ff)^2*se_ff)
+    ##no standard error calcs for values calculated from individual observations    
+    P450_Ray_sep_obs$KIE_p[i] = 1/P450_Ray_sep_obs$ff_p[i]
+    P450_Ray_sep_obs$se_KIE_p[i] = "NA"
+    
+    P450_Ray_sep_obs$KIE_alpha[i] = 1/P450_Ray_sep_obs$ff_alpha[i]
+    P450_Ray_sep_obs$se_KIE_alpha[i] = "NA"
+    
+    P450_Ray_sep_obs$KIE_beta[i] = 1/P450_Ray_sep_obs$ff_beta[i]
+    P450_Ray_sep_obs$se_KIE_beta[i] = "NA"
+
+}
+
+(P450_Ray_sep_obs)
+
+write.csv(P450_Ray_sep_obs, here("data/output/exp_P450/P450_Ray_sep_obs.csv"), row.names = TRUE)
+```
+
+#Standard Rayleigh applied to individual observations: Calculate the mean and standard deviation KIEs for early and late in the reaction (P450)
+
+- Early reaction: f = 0.8 +/- 0.03
+- Late reaction: f = 0.5 +/- 0.03
+```{r P450_Ray_KIE_limits}
+P450_Ray_sep_obs_filtered <- P450_Ray_sep_obs %>% 
+  select(delta_s0_calc,y_icpt_alpha, y_icpt_beta, epsilon_p, ff_p, ff_alpha, ff_beta, epsilon_alpha, epsilon_beta, KIE_p, KIE_alpha, KIE_beta, f, one_minus_f, `-flnf/(1-f)`)
+
+P450_Ray_KIE_limits <- tibble(
+  early_mean = colMeans(filter(P450_Ray_sep_obs_filtered, f <= 0.83 & f >= 0.77)),
+  
+  early_sd = sapply((filter(P450_Ray_sep_obs_filtered, f <= 0.83 & f >= 0.77)), sd),
+  
+  late_mean = colMeans(filter(P450_Ray_sep_obs_filtered, f <= 0.53 & f >= 0.47)),
+  
+  late_sd = sapply((filter(P450_Ray_sep_obs_filtered, f <= 0.53 & f >= 0.47)), sd)
+)%>% t()  #Flip (transpose) table
+
+colnames(P450_Ray_KIE_limits) <- colnames(P450_Ray_sep_obs_filtered)
+
+P450_Ray_KIE_limits <- as_tibble(P450_Ray_KIE_limits, rownames = NA)
+
+(P450_Ray_KIE_limits)
+```
+
+#P450: Graph KIE_bulk (individual observations) vs -flnf/(1-f)
+
+KIE_bulk calculated separately for each observation using the standard Rayleigh model.
+
+Treat each replicate separately.
+```{r plot_KIE_p, warning=FALSE}
+
+(P450_KIE_p <- ggplot(mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  #Plot data points for each Replicate separately
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_p), color = "#56B4E9", shape = 15)+
+               
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_p), color = "#009E73", shape = 17)+
+    
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_p), color = "#CC79A7", shape = 2)+ 
+  
+  #Plot linear regression lines for each Replicate separately 
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_p), color = "#56B4E9", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_p), color = "#009E73", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_p), color = "#CC79A7", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  xlab("-flnf/(1-f)")+ ylab("KIE_p")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+#save figure
+ggsave(P450_KIE_p, filename = here("graphs/exp_P450/P450_KIE_p.tiff"), height = 3, width = 5, units = "in")
+
+#Apply linear regression model to KIE_p
+
+##Replicate A
+P450_A_lm_KIE_p <- lm(KIE_p ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "A"))
+summary(P450_A_lm_KIE_p)
+
+##Replicate B
+P450_B_lm_KIE_p <- lm(KIE_p ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "B"))
+summary(P450_B_lm_KIE_p)
+
+##Replicate C
+P450_C_lm_KIE_p <- lm(KIE_p ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "C"))
+summary(P450_C_lm_KIE_p)
+```
+##There is no trend in KIE_bulk values calculated for individual observations.
+
+#P450: Graph KIE_alpha (individual observations) vs -flnf/(1-f)
+
+KIE_alpha calculated separately for each observation using the standard Rayleigh model.
+
+Treat each replicate separately.
+```{r plot_KIE_alpha, warning=FALSE}
+
+(P450_KIE_alpha <- ggplot(mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  #Plot data points for each Replicate separately
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_alpha), color = "#56B4E9", shape = 15)+
+               
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_alpha), color = "#009E73", shape = 17)+
+    
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_alpha), color = "#CC79A7", shape = 2)+ 
+  
+  #Plot linear regression lines for each Replicate separately 
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_alpha), color = "#56B4E9", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_alpha), color = "#009E73", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_alpha), color = "#CC79A7", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  xlab("-flnf/(1-f)")+ ylab("KIE_alpha")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+#save figure
+ggsave(P450_KIE_alpha, filename = here("graphs/exp_P450/P450_KIE_alpha.tiff"), height = 3, width = 5, units = "in")
+
+#Apply linear regression model to KIE_alpha
+
+##Replicate A
+P450_A_lm_KIE_alpha <- lm(KIE_alpha ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "A"))
+summary(P450_A_lm_KIE_alpha)
+
+##Replicate B
+P450_B_lm_KIE_alpha <- lm(KIE_alpha ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "B"))
+summary(P450_B_lm_KIE_alpha)
+
+##Replicate C
+P450_C_lm_KIE_alpha <- lm(KIE_alpha ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "C"))
+summary(P450_C_lm_KIE_alpha)
+```
+##There is no trend in KIE_alpha values calculated for individual observations.
+
+#P450: Graph KIE_beta (individual observations) vs -flnf/(1-f)
+
+KIE_beta calculated separately for each observation using the standard Rayleigh model.
+
+Treat each replicate separately.
+```{r plot_KIE_beta, warning=FALSE}
+
+(P450_KIE_beta <- ggplot(mapping = 
+         aes(x = `-flnf/(1-f)`))+
+  #Plot data points for each Replicate separately
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_beta), color = "#56B4E9", shape = 15)+
+               
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_beta), color = "#009E73", shape = 17)+
+    
+  geom_point(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_beta), color = "#CC79A7", shape = 2)+ 
+  
+  #Plot linear regression lines for each Replicate separately 
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "A"), mapping = aes(y = KIE_beta), color = "#56B4E9", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "B"), mapping = aes(y = KIE_beta), color = "#009E73", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  geom_smooth(data = filter(P450_Ray_sep_obs, Replicate == "C"), mapping = aes(y = KIE_beta), color = "#CC79A7", method = lm, se = FALSE, fullrange=TRUE)+
+   
+  xlab("-flnf/(1-f)")+ ylab("KIE_beta")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank())+
+  theme(panel.grid.minor = element_blank())
+)
+
+#save figure
+ggsave(P450_KIE_beta, filename = here("graphs/exp_P450/P450_KIE_beta.tiff"), height = 3, width = 5, units = "in")
+
+#Apply linear regression model to KIE_beta
+
+##Replicate A
+P450_A_lm_KIE_beta <- lm(KIE_beta ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "A"))
+summary(P450_A_lm_KIE_beta)
+
+##Replicate B
+P450_B_lm_KIE_beta <- lm(KIE_beta ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "B"))
+summary(P450_B_lm_KIE_beta)
+
+##Replicate C
+P450_C_lm_KIE_beta <- lm(KIE_beta ~ `-flnf/(1-f)`, data = filter(P450_Ray_sep_obs, Replicate == "C"))
+summary(P450_C_lm_KIE_beta)
+```
+##There is not trend in KIE_beta values calculated for individual observations with the standard Rayleigh model.
+
+
 #Apply the Expanded Rayleigh model to P450 NOR data (P450).
 
 ##Calculate `ff_alpha` and `ff_beta` for each value of f.
@@ -962,7 +1329,7 @@ P450_ER_KIE_limits <- as_tibble(P450_ER_KIE_limits, rownames = NA)
 
 #Combine standard Rayleigh and Expanded Rayleigh tables to make a summary table
 
-Add data from individual replicates (standard Rayleigh model) or observations (Expanded Rayleigh model) and the corresponding averages and standard deviations.
+Add data from individual replicates (standard Rayleigh model) or observations (standard Rayleigh model and Expanded Rayleigh model) and the corresponding averages and standard deviations.
 
 #Note - bulk values for Expanded Rayleigh model
 - Bulk N values (epsilon_p, ff_p, and KIE_p) are listed for each individual replicate included in early or late reaction estimates.
@@ -994,6 +1361,7 @@ late_C <- as.character(unlist(filter(P450, replicate == "C" & f <= 0.53 & f >= 0
 P450_summary <- tibble(
   Model = c(
     rep("Standard Rayleigh", 4),
+    rep("Standard Rayleigh", (7 + 8)),
     rep("Expanded Rayleigh", (7 + 8))
   ),
 
@@ -1001,6 +1369,12 @@ Notes = c(
   #Standard Rayleigh
   rep("NA", 3),
   "f_min and f_max - report range for all reps. (A-C), not avg +/- sd",
+  
+  #Standard Rayleigh - individual observations
+  rep("NA", 6),
+  "f - report range for early observations, not avg +/- sd",
+  rep("NA", 7),
+  "f - report range for late observations, not avg +/- sd",
   
   #Expanded Rayleigh
   rep("NA", 6),
@@ -1010,13 +1384,22 @@ Notes = c(
 ),
     
 Name = c(
+  #Standard Rayleigh
   "A-all", "B-all", "C-all", "Avg +/- SD",
+  
+  #Standard Rayleigh - Individual observations,
+  early_A, early_B, early_C, "Avg +/- SD",
+  late_A, late_B, late_C, "Avg +/- SD",  
+  
+  #Expanded Rayleigh - Individual observations
   early_A, early_B, early_C, "Avg +/- SD",
   late_A, late_B, late_C, "Avg +/- SD"
 ), 
   
 Replicate = c(
   "A", "B", "C", "Avg +/- SD", #Standard Rayleigh
+  "A", "A", "B", "B", "C", "C", "Avg +/- SD", #Standard Rayleigh -early
+  "A", "A", "A", "B", "B", "B", "C", "Avg +/- SD", #Standard Rayleigh - late
   "A", "A", "B", "B", "C", "C", "Avg +/- SD", #Expanded Rayleigh -early
   "A", "A", "A", "B", "B", "B", "C", "Avg +/- SD" #Expanded Rayleigh - late
 ),
@@ -1024,11 +1407,23 @@ Replicate = c(
 Observations = c(
   rep("all", 4),
   rep("early", 7),
+  rep("late", 8),
+  rep("early", 7),
   rep("late", 8)
 ),
 
 Time_min = c(
+  #Standard Rayleigh
   "A-all", "B-all", "C-all", "NA",
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_ER, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(Time_min))),
+  "NA",
+  
+  ##late reaction
+  as.numeric(unlist(  (filter(P450_ER, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(Time_min)))),
+  "NA",
   
   #Expanded Rayleigh
   ##early reaction
@@ -1051,6 +1446,13 @@ P450_summary$f_min = c(
   P450_Ray$f_min[3], #rep. C
   min(P450$f), #overall minimum reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##early reaction - don't calc average (doesn't mean much)
+  rep("NA", 7),
+  
+  ##late reaction
+  rep("NA", 8),
+  
   #Expanded Rayleigh
   ##early reaction - don't calc average (doesn't mean much)
   rep("NA", 7),
@@ -1066,6 +1468,13 @@ P450_summary$f_max = c(
   P450_Ray$f_max[3], #rep. C
   max(P450$f), #overall maximum reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##early reaction - don't calc average (doesn't mean much)
+  rep("NA", 7),
+  
+  ##late reaction
+  rep("NA", 8),  
+  
   #Expanded Rayleigh
   ##early reaction - don't calc average (doesn't mean much)
   rep("NA", 7),
@@ -1077,7 +1486,16 @@ P450_summary$f_max = c(
 P450_summary$f = c(
   #Standard Rayleigh
   rep("NA", 4), #don't list individual f values for standard Rayleigh
+
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_ER, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(f))),
+  "NA",
   
+  ##late reaction
+  as.numeric(unlist(  (filter(P450_ER, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(f)))),
+  "NA",  
+    
   #Expanded Rayleigh
   ##early reaction
   as.numeric(unlist(filter(P450_ER, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(f))),
@@ -1094,7 +1512,11 @@ P450_summary$Multiple_R_squared = c(
   P450_Ray$Multiple_R_squared[2], #rep. B
   P450_Ray$Multiple_R_squared[3], #rep. C
   P450_Ray_avg$Multiple_R_squared[1], #average reps. A-C
-  
+
+  #Standard Rayleigh - Individual observations - don't include R^2 values since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),
+    
   #Expanded Rayleigh - don't calc average for early/late reaction (no real meaning)
   ##early reaction
   rep(P450_Ray$Multiple_R_squared[1], 2),
@@ -1114,6 +1536,10 @@ P450_summary$sd_Multiple_R_squared = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$Multiple_R_squared[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations - don't include R^2 values since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),  
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 7),  #reps. A-C - don't calc sd
@@ -1128,6 +1554,10 @@ P450_summary$RMSE_lm = c(
   P450_Ray$RMSE_lm[2], #rep. B
   P450_Ray$RMSE_lm[3], #rep. C
   P450_Ray_avg$RMSE_lm[1], #average reps. A-C
+  
+  #Standard Rayleigh - Individual observations - don't include RMSE values since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),  
   
   #Expanded Rayleigh - don't calc average for early/late reaction (no real meaning)
   ##early reaction
@@ -1148,6 +1578,10 @@ P450_summary$sd_RMSE_lm = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$RMSE_lm[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations - don't include RMSE values since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),  
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 7),  #reps. A-C - don't calc sd
@@ -1162,6 +1596,10 @@ P450_summary$lm_delta_p_ncv = c(
   P450_Ray$lm_delta_p_ncv[2], #rep. B
   P450_Ray$lm_delta_p_ncv[3], #rep. C
   P450_Ray_avg$lm_delta_p_ncv[1], #average reps. A-C
+  
+  #Standard Rayleigh - Individual observations - don't include ncv values (non-constant variance p-values) since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),  
   
   #Expanded Rayleigh - don't calc average for early/late reaction (no real meaning)
   ##early reaction
@@ -1182,6 +1620,10 @@ P450_summary$sd_lm_delta_p_ncv = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$lm_delta_p_ncv[2], #sd reps. A-C
   
+#Standard Rayleigh - Individual observations - don't include ncv values (non-constant variance p-values) since linear regression wasn't directly used to calculate epsilon
+  rep("NA", 7),
+  rep("NA", 8),    
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 7),  #reps. A-C - don't calc sd
@@ -1196,6 +1638,20 @@ P450_summary$delta_s0_calc = c(
   P450_Ray$delta_s0_calc[2], #rep. B
   P450_Ray$delta_s0_calc[3], #rep. C
   P450_Ray_avg$delta_s0_calc[1], #average reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep(P450_Ray$delta_s0_calc[1], 2), #rep. A
+  rep(P450_Ray$delta_s0_calc[2], 2), #rep. B
+  rep(P450_Ray$delta_s0_calc[3], 2), #rep. C
+  "NA", #don't calc the average intercept for individual observations
+  
+  ##late reaction
+  rep(P450_Ray$delta_s0_calc[1], 3), #rep. A
+  rep(P450_Ray$delta_s0_calc[2], 3), #rep. B
+  rep(P450_Ray$delta_s0_calc[3], 1), #rep. C
+  "NA", #don't calc the average intercept for individual observations  
   
   #Expanded Rayleigh
   ##early reaction
@@ -1216,6 +1672,146 @@ P450_summary$sd_delta_s0_calc = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$delta_s0_calc[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc the intercept sd for individual observations
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc intercept sd for individual observations  
+  
+  #Expanded Rayleigh
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc the intercept sd for individual observations
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  "NA" #don't calc intercept sd for individual observations
+)
+
+#Add y-intercept for standard Rayleigh plot where y = delta_alpha (determined by linear regression of individual replicates)
+P450_summary$y_icpt_alpha = c(
+  #Standard Rayleigh
+  P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], #rep. A
+  P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], #rep. B
+  P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)], #rep. C
+  mean(c(
+    P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)]
+  )), #average reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep(P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], 2), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], 2), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)], 2), #rep. C
+  "NA", #don't calc the average intercept for individual observations
+  
+  ##late reaction
+  rep(P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], 3), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], 3), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)], 1), #rep. C
+  "NA", #don't calc the average intercept for individual observations  
+  
+  #Expanded Rayleigh
+  ##early reaction
+  rep(P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], 2), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], 2), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)], 2), #rep. C
+  "NA", #don't calc the average intercept for individual observations
+  
+  ##late reaction
+  rep(P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], 3), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], 3), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)], 1), #rep. C
+  "NA" #don't calc the average intercept for individual observations
+)
+
+P450_summary$sd_y_icpt_alpha = c(
+  #Standard Rayleigh
+  rep("NA", 3), #reps. A-C - don't calc sd for individual reps
+  sd(c(
+    P450_Ray_sep_obs$y_icpt_alpha[n_obs_A], P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B)], P450_Ray_sep_obs$y_icpt_alpha[(n_obs_A + n_obs_B + n_obs_C)]
+  )), #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc the intercept sd for individual observations
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc intercept sd for individual observations  
+  
+  #Expanded Rayleigh
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc the intercept sd for individual observations
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  "NA" #don't calc intercept sd for individual observations
+)
+
+#Add y-intercept for standard Rayleigh plot where y = delta_beta (determined by linear regression of individual replicates)
+P450_summary$y_icpt_beta = c(
+  #Standard Rayleigh
+  P450_Ray_sep_obs$y_icpt_beta[n_obs_A], #rep. A
+  P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], #rep. B
+  P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)], #rep. C
+  mean(c(
+    P450_Ray_sep_obs$y_icpt_beta[n_obs_A], P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)]
+  )), #average reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep(P450_Ray_sep_obs$y_icpt_beta[n_obs_A], 2), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], 2), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)], 2), #rep. C
+  "NA", #don't calc the average intercept for individual observations
+  
+  ##late reaction
+  rep(P450_Ray_sep_obs$y_icpt_beta[n_obs_A], 3), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], 3), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)], 1), #rep. C
+  "NA", #don't calc the average intercept for individual observations  
+  
+  #Expanded Rayleigh
+  ##early reaction
+  rep(P450_Ray_sep_obs$y_icpt_beta[n_obs_A], 2), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], 2), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)], 2), #rep. C
+  "NA", #don't calc the average intercept for individual observations
+  
+  ##late reaction
+  rep(P450_Ray_sep_obs$y_icpt_beta[n_obs_A], 3), #rep. A
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], 3), #rep. B
+  rep(P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)], 1), #rep. C
+  "NA" #don't calc the average intercept for individual observations
+)
+
+P450_summary$sd_y_icpt_beta = c(
+  #Standard Rayleigh
+  rep("NA", 3), #reps. A-C - don't calc sd for individual reps
+  sd(c(
+    P450_Ray_sep_obs$y_icpt_beta[n_obs_A], P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B)], P450_Ray_sep_obs$y_icpt_beta[(n_obs_A + n_obs_B + n_obs_C)]
+  )), #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##Linear regression is still used to calculate the y-intercept for delta_p vs [-flnf/(1-f)]
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc the intercept sd for individual observations
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  "NA", #don't calc intercept sd for individual observations  
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
@@ -1229,6 +1825,11 @@ P450_summary$sd_delta_s0_calc = c(
 P450_summary$rho = c(
   #Standard Rayleigh
   rep("NA", 4), #don't calc for standard Rayleigh model
+  
+  #Standard Rayleigh - Individual observations
+  ##don't calc for standard Rayleigh model
+  rep("NA", 7), 
+  rep("NA", 8),
   
   #Expanded Rayleigh
   ##early reaction
@@ -1244,6 +1845,11 @@ P450_summary$sd_rho = c(
   #Standard Rayleigh
   rep("NA", 4), #don't calc for standard Rayleigh model
   
+  #Standard Rayleigh - Individual observations
+  ##don't calc for standard Rayleigh model
+  rep("NA", 7), 
+  rep("NA", 8),  
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
@@ -1258,6 +1864,11 @@ P450_summary$tau = c(
   #Standard Rayleigh
   rep("NA", 4), #don't calc for standard Rayleigh model
   
+  #Standard Rayleigh - Individual observations
+  ##don't calc for standard Rayleigh model
+  rep("NA", 7), 
+  rep("NA", 8),  
+  
   #Expanded Rayleigh
   ##early reaction
   as.numeric(unlist(filter(P450_ER, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(tau))),
@@ -1271,6 +1882,11 @@ P450_summary$tau = c(
 P450_summary$sd_tau = c(
   #Standard Rayleigh
   rep("NA", 4), #don't calc for standard Rayleigh model
+  
+  #Standard Rayleigh - Individual observations
+  ##don't calc for standard Rayleigh model
+  rep("NA", 7), 
+  rep("NA", 8),  
   
   #Expanded Rayleigh
   ##early reaction
@@ -1288,7 +1904,15 @@ P450_summary$epsilon_p = c(
   P450_Ray$epsilon_p[2], #rep. B
   P450_Ray$epsilon_p[3], #rep. C
   P450_Ray_avg$epsilon_p[1], #average reps. A-C
-
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(epsilon_p))),
+  P450_Ray_KIE_limits$epsilon_p[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(epsilon_p)))),
+  P450_Ray_KIE_limits$epsilon_p[3], #average reps. A-C
     
   #Expanded Rayleigh
   ##early reaction
@@ -1309,6 +1933,15 @@ P450_summary$sd_epsilon_p = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$epsilon_p[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_p[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_p[4], #sd reps. A-C  
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
@@ -1325,7 +1958,15 @@ P450_summary$epsilon_alpha = c(
   P450_Ray$epsilon_alpha[2], #rep. B
   P450_Ray$epsilon_alpha[3], #rep. C
   P450_Ray_avg$epsilon_alpha[1], #average reps. A-C
-
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(epsilon_alpha))),
+  P450_Ray_KIE_limits$epsilon_alpha[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(epsilon_alpha)))),
+  P450_Ray_KIE_limits$epsilon_alpha[3], #average reps. A-C
     
   #Expanded Rayleigh
   ##early reaction
@@ -1341,6 +1982,15 @@ P450_summary$sd_epsilon_alpha = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$epsilon_alpha[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_alpha[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_alpha[4], #sd reps. A-C
   
   #Expanded Rayleigh
   ##early reaction
@@ -1359,6 +2009,14 @@ P450_summary$epsilon_beta = c(
   P450_Ray$epsilon_beta[3], #rep. C
   P450_Ray_avg$epsilon_beta[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(epsilon_beta))),
+  P450_Ray_KIE_limits$epsilon_beta[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(epsilon_beta)))),
+  P450_Ray_KIE_limits$epsilon_beta[3], #average reps. A-C  
     
   #Expanded Rayleigh
   ##early reaction
@@ -1374,6 +2032,15 @@ P450_summary$sd_epsilon_beta = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$epsilon_beta[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_beta[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$epsilon_beta[4], #sd reps. A-C
   
   #Expanded Rayleigh
   ##early reaction
@@ -1392,6 +2059,14 @@ P450_summary$ff_p = c(
   P450_Ray$ff_p[3], #rep. C
   P450_Ray_avg$ff_p[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(ff_p))),
+  P450_Ray_KIE_limits$ff_p[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(ff_p)))),
+  P450_Ray_KIE_limits$ff_p[3], #average reps. A-C  
     
   #Expanded Rayleigh
   ##early reaction
@@ -1412,6 +2087,15 @@ P450_summary$sd_ff_p = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual observations
   P450_Ray_avg$ff_p[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_p[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_p[4], #sd reps. A-C    
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 6),  #reps. A-C - don't calc sd for individual observations
@@ -1429,6 +2113,14 @@ P450_summary$ff_alpha = c(
   P450_Ray$ff_alpha[3], #rep. C
   P450_Ray_avg$ff_alpha[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(ff_alpha))),
+  P450_Ray_KIE_limits$ff_alpha[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(ff_alpha)))),
+  P450_Ray_KIE_limits$ff_alpha[3], #average reps. A-C    
     
   #Expanded Rayleigh
   ##early reaction
@@ -1444,6 +2136,15 @@ P450_summary$sd_ff_alpha = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$ff_alpha[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_alpha[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_alpha[4], #sd reps. A-C   
   
   #Expanded Rayleigh
   ##early reaction
@@ -1462,6 +2163,14 @@ P450_summary$ff_beta = c(
   P450_Ray$ff_beta[3], #rep. C
   P450_Ray_avg$ff_beta[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(ff_beta))),
+  P450_Ray_KIE_limits$ff_beta[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(ff_beta)))),
+  P450_Ray_KIE_limits$ff_beta[3], #average reps. A-C    
     
   #Expanded Rayleigh
   ##early reaction
@@ -1477,6 +2186,15 @@ P450_summary$sd_ff_beta = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$ff_beta[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_beta[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$ff_beta[4], #sd reps. A-C     
   
   #Expanded Rayleigh
   ##early reaction
@@ -1494,7 +2212,15 @@ P450_summary$KIE_p = c(
   P450_Ray$KIE_p[2], #rep. B
   P450_Ray$KIE_p[3], #rep. C
   P450_Ray_avg$KIE_p[1], #average reps. A-C
-
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(KIE_p))),
+  P450_Ray_KIE_limits$KIE_p[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(KIE_p)))),
+  P450_Ray_KIE_limits$KIE_p[3], #average reps. A-C
     
   #Expanded Rayleigh
   ##early reaction
@@ -1515,6 +2241,15 @@ P450_summary$sd_KIE_p = c(
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$KIE_p[2], #sd reps. A-C
   
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_p[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_p[4], #sd reps. A-C   
+  
   #Expanded Rayleigh
   ##early reaction
   rep("NA", 6),  #reps. A-C - don't calc sd for individual observations
@@ -1532,6 +2267,14 @@ P450_summary$KIE_alpha = c(
   P450_Ray$KIE_alpha[3], #rep. C
   P450_Ray_avg$KIE_alpha[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(KIE_alpha))),
+  P450_Ray_KIE_limits$KIE_alpha[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(KIE_alpha)))),
+  P450_Ray_KIE_limits$KIE_alpha[3], #average reps. A-C  
     
   #Expanded Rayleigh
   ##early reaction
@@ -1547,6 +2290,15 @@ P450_summary$sd_KIE_alpha = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$KIE_alpha[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_alpha[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_alpha[4], #sd reps. A-C  
   
   #Expanded Rayleigh
   ##early reaction
@@ -1565,6 +2317,14 @@ P450_summary$KIE_beta = c(
   P450_Ray$KIE_beta[3], #rep. C
   P450_Ray_avg$KIE_beta[1], #average reps. A-C
 
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  as.numeric(unlist(filter(P450_Ray_sep_obs, Data == "A-3"|Data == "A-4"|Data == "B-4"|Data == "B-5"|Data == "C-4"|Data == "C-5") %>% select(KIE_beta))),
+  P450_Ray_KIE_limits$KIE_beta[1], #average reps. A-C
+  
+  ##late reaction
+  as.numeric(unlist((filter(P450_Ray_sep_obs, Data == "A-15"|Data == "A-16"|Data == "A-17"|Data == "B-15"|Data == "B-16"|Data == "B-17"|Data == "C-15") %>% select(KIE_beta)))),
+  P450_Ray_KIE_limits$KIE_beta[3], #average reps. A-C 
     
   #Expanded Rayleigh
   ##early reaction
@@ -1580,6 +2340,15 @@ P450_summary$sd_KIE_beta = c(
   #Standard Rayleigh
   rep("NA", 3), #reps. A-C - don't calc sd for individual reps
   P450_Ray_avg$KIE_beta[2], #sd reps. A-C
+  
+  #Standard Rayleigh - Individual observations
+  ##early reaction
+  rep("NA", 6),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_beta[2], #sd reps. A-C
+  
+  ##late reaction
+  rep("NA", 7),  #reps. A-C - don't calc sd for individual reps
+  P450_Ray_KIE_limits$KIE_beta[4], #sd reps. A-C   
   
   #Expanded Rayleigh
   ##early reaction
@@ -1597,10 +2366,6 @@ write.csv(P450_summary, here("data/output/exp_P450/P450_summary.csv"), row.names
 ```
 #P450_summary_2: Paste mean +/- standard deviation (Expanded Rayleigh only)
 
-##Table 6 is a subset of this table.
-
-##Table S17 is a subset of this table.
-
 When the .csv file is opened in Excel, a funky symbol is included with the +/- symbol, but that can be removed with find and replace.
 ```{r P450_summary_2}
 
@@ -1608,8 +2373,14 @@ When the .csv file is opened in Excel, a funky symbol is included with the +/- s
   Notes = c(
   #Standard Rayleigh
   rep("NA", 3),
-  "f_min, f_max, and Multiple_R_squared - report range for all reps. (A-C), not avg +/- sd",
-  
+  "f_min, f_max, Multiple_R_squared - report range for all reps. (A-C), not avg +/- sd",
+
+  #Standard Rayleigh - Individual observations
+  rep("NA", 6),
+  "f - report range for early observations, not avg +/- sd",
+  rep("NA", 7),
+  "f - report range for late observations, not avg +/- sd",
+    
   #Expanded Rayleigh
   rep("NA", 6),
   "f - report range for early observations, not avg +/- sd",
@@ -1618,150 +2389,319 @@ When the .csv file is opened in Excel, a funky symbol is included with the +/- s
 ),
 
   Multiple_R_squared =c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$Multiple_R_squared[1:3])), 2)),
     paste0(round(min(as.numeric((P450_summary$Multiple_R_squared[1:3]))), 2), "-", round(max(as.numeric((P450_summary$Multiple_R_squared[1:3]))), 2)),
-    paste(round(as.numeric((P450_summary$Multiple_R_squared[5:10])), 2)),
-    paste(P450_summary$Multiple_R_squared[11]),
-    paste(round(as.numeric((P450_summary$Multiple_R_squared[12:18])), 2)),
-    paste(P450_summary$Multiple_R_squared[19])
+    
+    #Standard Rayleigh - Individual observations
+    ##Linear regression not directly used in epsilon calcs for individual observations
+    rep("NA", 7),
+    rep("NA", 8),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$Multiple_R_squared[20:25])), 2)),
+    paste(P450_summary$Multiple_R_squared[26]),
+    paste(round(as.numeric((P450_summary$Multiple_R_squared[27:33])), 2)),
+    paste(P450_summary$Multiple_R_squared[34])
   ),
   
   RMSE_lm =c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$RMSE_lm[1:3])), 2)),
     paste(round(as.numeric(P450_summary$RMSE_lm[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_RMSE_lm[4]), 2)),
-    paste(round(as.numeric((P450_summary$RMSE_lm[5:10])), 2)),
-    paste(P450_summary$RMSE_lm[11]),
-    paste(round(as.numeric((P450_summary$RMSE_lm[12:18])), 2)),
-    paste(P450_summary$RMSE_lm[19])
+    
+    #Standard Rayleigh - Individual observations
+    ##Linear regression not directly used in epsilon calcs for individual observations
+    rep("NA", 7),
+    rep("NA", 8),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$RMSE_lm[20:25])), 2)),
+    paste(P450_summary$RMSE_lm[26]),
+    paste(round(as.numeric((P450_summary$RMSE_lm[27:33])), 2)),
+    paste(P450_summary$RMSE_lm[34])
   ),
   
   lm_delta_p_ncv =c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$lm_delta_p_ncv[1:3])), 2)),
     paste(round(as.numeric(P450_summary$lm_delta_p_ncv[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_lm_delta_p_ncv[4]), 2)),
-    paste(round(as.numeric((P450_summary$lm_delta_p_ncv[5:10])), 2)),
-    paste(P450_summary$lm_delta_p_ncv[11]),
-    paste(round(as.numeric((P450_summary$lm_delta_p_ncv[12:18])), 2)),
-    paste(P450_summary$lm_delta_p_ncv[19])
+    
+    #Standard Rayleigh - Individual observations
+    ##Linear regression not directly used in epsilon calcs for individual observations
+    rep("NA", 7),
+    rep("NA", 8),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$lm_delta_p_ncv[20:25])), 2)),
+    paste(P450_summary$lm_delta_p_ncv[26]),
+    paste(round(as.numeric((P450_summary$lm_delta_p_ncv[27:33])), 2)),
+    paste(P450_summary$lm_delta_p_ncv[34])
   ),
   
   f = c(
     #Standard Rayleigh - use full range of f values to find epsilon
     paste0(round(as.numeric(P450_summary$f_min[1:4]), 2), "-", round(as.numeric(P450_summary$f_max[1:4]), 2)),
-    #Expanded Rayleigh - calc epsilon_alpha and epsilon_beta for individual f values
+    
+    #Standard Rayleigh - calc epsilon_p, epsilon_alpha and epsilon_beta for individual f values
     paste(round(as.numeric((P450_summary$f[5:10])), 2)),
     paste0(round(min(as.numeric((P450_summary$f[5:10]))), 2), "-", round(max(as.numeric((P450_summary$f[5:10]))), 2)),
     paste(round(as.numeric((P450_summary$f[12:18])), 2)),
-    paste0(round(min(as.numeric((P450_summary$f[12:18]))), 2), "-", round(max(as.numeric((P450_summary$f[12:18]))), 2))
+    paste0(round(min(as.numeric((P450_summary$f[12:18]))), 2), "-", round(max(as.numeric((P450_summary$f[12:18]))), 2)),
+    
+    #Expanded Rayleigh - calc epsilon_alpha and epsilon_beta for individual f values
+    paste(round(as.numeric((P450_summary$f[20:25])), 2)),
+    paste0(round(min(as.numeric((P450_summary$f[20:25]))), 2), "-", round(max(as.numeric((P450_summary$f[20:25]))), 2)),
+    paste(round(as.numeric((P450_summary$f[27:33])), 2)),
+    paste0(round(min(as.numeric((P450_summary$f[27:33]))), 2), "-", round(max(as.numeric((P450_summary$f[27:33]))), 2))
   ),
 
   delta_s0_calc = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$delta_s0_calc[1:3])), 2)),
     paste(round(as.numeric(P450_summary$delta_s0_calc[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_delta_s0_calc[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$delta_s0_calc[5:10])), 2)),
     paste(P450_summary$delta_s0_calc[11]),
     paste(round(as.numeric((P450_summary$delta_s0_calc[12:18])), 2)),
-    paste(P450_summary$delta_s0_calc[19])
+    paste(P450_summary$delta_s0_calc[19]),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$delta_s0_calc[20:25])), 2)),
+    paste(P450_summary$delta_s0_calc[26]),
+    paste(round(as.numeric((P450_summary$delta_s0_calc[27:33])), 2)),
+    paste(P450_summary$delta_s0_calc[34])
+  ),
+
+  y_icpt_alpha = c(
+    #Standard Rayleigh
+    paste(round(as.numeric((P450_summary$y_icpt_alpha[1:3])), 2)),
+    paste(round(as.numeric(P450_summary$y_icpt_alpha[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_y_icpt_alpha[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
+    paste(round(as.numeric((P450_summary$y_icpt_alpha[5:10])), 2)),
+    paste(P450_summary$y_icpt_alpha[11]),
+    paste(round(as.numeric((P450_summary$y_icpt_alpha[12:18])), 2)),
+     paste(P450_summary$y_icpt_alpha[19]),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$y_icpt_alpha[20:25])), 2)),
+    paste(P450_summary$y_icpt_alpha[26]),
+    paste(round(as.numeric((P450_summary$y_icpt_alpha[27:33])), 2)),
+    paste(P450_summary$y_icpt_alpha[34])
+  ),
+
+  y_icpt_beta = c(
+    #Standard Rayleigh
+    paste(round(as.numeric((P450_summary$y_icpt_beta[1:3])), 2)),
+    paste(round(as.numeric(P450_summary$y_icpt_beta[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_y_icpt_beta[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
+    paste(round(as.numeric((P450_summary$y_icpt_beta[5:10])), 2)),
+    paste(P450_summary$y_icpt_beta[11]),
+    paste(round(as.numeric((P450_summary$y_icpt_beta[12:18])), 2)),
+    paste(P450_summary$y_icpt_beta[19]),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$y_icpt_beta[20:25])), 2)),
+    paste(P450_summary$y_icpt_beta[26]),
+    paste(round(as.numeric((P450_summary$y_icpt_beta[27:33])), 2)),
+    paste(P450_summary$y_icpt_beta[34])
   ),
   
   rho =c(
+    #Standard Rayleigh
     paste(P450_summary$rho[1:4]),
-    paste(round(as.numeric((P450_summary$rho[5:10])), 4)),
-    paste(round(as.numeric(P450_summary$rho[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_rho[11]), 4)),
-    paste(round(as.numeric((P450_summary$rho[12:18])), 4)),
-    paste(round(as.numeric(P450_summary$rho[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_rho[19]), 4))
+    
+    #Standard Rayleigh - Individual observations
+    paste(P450_summary$rho[5:19]),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$rho[20:25])), 4)),
+    paste(round(as.numeric(P450_summary$rho[26]), 4), "\u00B1", round(as.numeric(P450_summary$sd_rho[26]), 4)),
+    paste(round(as.numeric((P450_summary$rho[27:33])), 4)),
+    paste(round(as.numeric(P450_summary$rho[34]), 4), "\u00B1", round(as.numeric(P450_summary$sd_rho[34]), 4))
   ), 
   
   tau =c(
+    #Standard Rayleigh
     paste(P450_summary$tau[1:4]),
-    paste(round(as.numeric((P450_summary$tau[5:10])), 5)),
-    paste(round(as.numeric(P450_summary$tau[11]), 5), "\u00B1", round(as.numeric(P450_summary$sd_tau[11]), 8)),
-    paste(round(as.numeric((P450_summary$tau[12:18])), 5)),
-    paste(round(as.numeric(P450_summary$tau[19]), 5), "\u00B1", round(as.numeric(P450_summary$sd_tau[19]), 8))
+    
+    #Standard Rayleigh - Individual observations
+    paste(P450_summary$tau[5:19]),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$tau[20:25])), 5)),
+    paste(round(as.numeric(P450_summary$tau[26]), 5), "\u00B1", round(as.numeric(P450_summary$sd_tau[26]), 8)),
+    paste(round(as.numeric((P450_summary$tau[27:33])), 5)),
+    paste(round(as.numeric(P450_summary$tau[34]), 5), "\u00B1", round(as.numeric(P450_summary$sd_tau[34]), 8))
   ),   
    
   epsilon_p = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$epsilon_p[1:3])), 2)),
     paste(round(as.numeric(P450_summary$epsilon_p[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_p[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$epsilon_p[5:10])), 2)),
-    paste(P450_summary$epsilon_p[11]),
+    paste(round(as.numeric(P450_summary$epsilon_p[11]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_p[11]), 2)),
     paste(round(as.numeric((P450_summary$epsilon_p[12:18])), 2)),
-    paste(P450_summary$epsilon_p[19])
+    paste(round(as.numeric(P450_summary$epsilon_p[19]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_p[19]), 2)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$epsilon_p[20:25])), 2)),
+    paste(P450_summary$epsilon_p[26]),
+    paste(round(as.numeric((P450_summary$epsilon_p[27:33])), 2)),
+    paste(P450_summary$epsilon_p[34])
   ), 
   
   epsilon_alpha = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$epsilon_alpha[1:3])), 2)),
     paste(round(as.numeric(P450_summary$epsilon_alpha[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$epsilon_alpha[5:10])), 2)),
     paste(round(as.numeric(P450_summary$epsilon_alpha[11]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[11]), 2)),
     paste(round(as.numeric((P450_summary$epsilon_alpha[12:18])), 2)),
-    paste(round(as.numeric(P450_summary$epsilon_alpha[19]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[19]), 2))
+    paste(round(as.numeric(P450_summary$epsilon_alpha[19]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[19]), 2)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$epsilon_alpha[20:25])), 2)),
+    paste(round(as.numeric(P450_summary$epsilon_alpha[26]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[26]), 2)),
+    paste(round(as.numeric((P450_summary$epsilon_alpha[27:33])), 2)),
+    paste(round(as.numeric(P450_summary$epsilon_alpha[34]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_alpha[34]), 2))
   ),  
   
   epsilon_beta = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$epsilon_beta[1:3])), 2)),
     paste(round(as.numeric(P450_summary$epsilon_beta[4]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[4]), 2)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$epsilon_beta[5:10])), 2)),
     paste(round(as.numeric(P450_summary$epsilon_beta[11]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[11]), 2)),
     paste(round(as.numeric((P450_summary$epsilon_beta[12:18])), 2)),
-    paste(round(as.numeric(P450_summary$epsilon_beta[19]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[19]), 2))
+    paste(round(as.numeric(P450_summary$epsilon_beta[19]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[19]), 2)),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$epsilon_beta[20:25])), 2)),
+    paste(round(as.numeric(P450_summary$epsilon_beta[26]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[26]), 2)),
+    paste(round(as.numeric((P450_summary$epsilon_beta[27:33])), 2)),
+    paste(round(as.numeric(P450_summary$epsilon_beta[34]), 2), "\u00B1", round(as.numeric(P450_summary$sd_epsilon_beta[34]), 2))
   ),  
 
   ff_p = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$ff_p[1:3])), 4)),
     paste(round(as.numeric(P450_summary$ff_p[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_p[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$ff_p[5:10])), 4)),
-    paste(P450_summary$ff_p[11]),
+    paste(round(as.numeric(P450_summary$ff_p[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_p[11]), 4)),
     paste(round(as.numeric((P450_summary$ff_p[12:18])), 4)),
-    paste(P450_summary$ff_p[19])
+    paste(round(as.numeric(P450_summary$ff_p[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_p[19]), 4)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$ff_p[20:25])), 4)),
+    paste(P450_summary$ff_p[26]),
+    paste(round(as.numeric((P450_summary$ff_p[27:33])), 4)),
+    paste(P450_summary$ff_p[34])
   ),
   
   ff_alpha = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$ff_alpha[1:3])), 4)),
     paste(round(as.numeric(P450_summary$ff_alpha[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$ff_alpha[5:10])), 4)),
     paste(round(as.numeric(P450_summary$ff_alpha[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[11]), 4)),
     paste(round(as.numeric((P450_summary$ff_alpha[12:18])), 4)),
-    paste(round(as.numeric(P450_summary$ff_alpha[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[19]), 4))
+    paste(round(as.numeric(P450_summary$ff_alpha[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[19]), 4)),
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$ff_alpha[20:25])), 4)),
+    paste(round(as.numeric(P450_summary$ff_alpha[26]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[26]), 4)),
+    paste(round(as.numeric((P450_summary$ff_alpha[27:33])), 4)),
+    paste(round(as.numeric(P450_summary$ff_alpha[34]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_alpha[34]), 4))
   ),  
   
   ff_beta = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$ff_beta[1:3])), 4)),
     paste(round(as.numeric(P450_summary$ff_beta[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$ff_beta[5:10])), 4)),
     paste(round(as.numeric(P450_summary$ff_beta[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[11]), 4)),
     paste(round(as.numeric((P450_summary$ff_beta[12:18])), 4)),
-    paste(round(as.numeric(P450_summary$ff_beta[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[19]), 4))
+    paste(round(as.numeric(P450_summary$ff_beta[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[19]), 4)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$ff_beta[20:25])), 4)),
+    paste(round(as.numeric(P450_summary$ff_beta[26]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[26]), 4)),
+    paste(round(as.numeric((P450_summary$ff_beta[27:33])), 4)),
+    paste(round(as.numeric(P450_summary$ff_beta[34]), 4), "\u00B1", round(as.numeric(P450_summary$sd_ff_beta[34]), 4))
   ),
   
   KIE_p = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$KIE_p[1:3])), 4)),
     paste(round(as.numeric(P450_summary$KIE_p[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_p[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$KIE_p[5:10])), 4)),
-    paste(P450_summary$KIE_p[11]),
+    paste(round(as.numeric(P450_summary$KIE_p[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_p[11]), 4)),
     paste(round(as.numeric((P450_summary$KIE_p[12:18])), 4)),
-    paste(P450_summary$KIE_p[19])
+    paste(round(as.numeric(P450_summary$KIE_p[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_p[19]), 4)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$KIE_p[20:25])), 4)),
+    paste(P450_summary$KIE_p[26]),
+    paste(round(as.numeric((P450_summary$KIE_p[27:33])), 4)),
+    paste(P450_summary$KIE_p[34])
   ),
   
   KIE_alpha = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$KIE_alpha[1:3])), 4)),
     paste(round(as.numeric(P450_summary$KIE_alpha[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$KIE_alpha[5:10])), 4)),
     paste(round(as.numeric(P450_summary$KIE_alpha[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[11]), 4)),
     paste(round(as.numeric((P450_summary$KIE_alpha[12:18])), 4)),
-    paste(round(as.numeric(P450_summary$KIE_alpha[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[19]), 4))
+    paste(round(as.numeric(P450_summary$KIE_alpha[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[19]), 4)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$KIE_alpha[20:25])), 4)),
+    paste(round(as.numeric(P450_summary$KIE_alpha[26]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[26]), 4)),
+    paste(round(as.numeric((P450_summary$KIE_alpha[27:33])), 4)),
+    paste(round(as.numeric(P450_summary$KIE_alpha[34]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_alpha[34]), 4))
   ),   
   
   KIE_beta = c(
+    #Standard Rayleigh
     paste(round(as.numeric((P450_summary$KIE_beta[1:3])), 4)),
     paste(round(as.numeric(P450_summary$KIE_beta[4]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[4]), 4)),
+    
+    #Standard Rayleigh - Individual observations
     paste(round(as.numeric((P450_summary$KIE_beta[5:10])), 4)),
     paste(round(as.numeric(P450_summary$KIE_beta[11]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[11]), 4)),
     paste(round(as.numeric((P450_summary$KIE_beta[12:18])), 4)),
-    paste(round(as.numeric(P450_summary$KIE_beta[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[19]), 4))
+    paste(round(as.numeric(P450_summary$KIE_beta[19]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[19]), 4)),    
+    
+    #Expanded Rayleigh
+    paste(round(as.numeric((P450_summary$KIE_beta[20:25])), 4)),
+    paste(round(as.numeric(P450_summary$KIE_beta[26]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[26]), 4)),
+    paste(round(as.numeric((P450_summary$KIE_beta[27:33])), 4)),
+    paste(round(as.numeric(P450_summary$KIE_beta[34]), 4), "\u00B1", round(as.numeric(P450_summary$sd_KIE_beta[34]), 4))
   ), 
   
 )%>%
-    select(-f_min, -f_max, -sd_Multiple_R_squared, -sd_RMSE_lm, -sd_lm_delta_p_ncv, -sd_delta_s0_calc, -sd_rho, -sd_tau, -sd_epsilon_p, -sd_epsilon_alpha, -sd_epsilon_beta, -sd_ff_p, -sd_ff_alpha, -sd_ff_beta, -sd_KIE_p, -sd_KIE_alpha, -sd_KIE_beta)
+    select(-f_min, -f_max, -sd_Multiple_R_squared, -sd_RMSE_lm, -sd_lm_delta_p_ncv, -sd_delta_s0_calc, -sd_y_icpt_alpha, -sd_y_icpt_beta, -sd_rho, -sd_tau, -sd_epsilon_p, -sd_epsilon_alpha, -sd_epsilon_beta, -sd_ff_p, -sd_ff_alpha, -sd_ff_beta, -sd_KIE_p, -sd_KIE_alpha, -sd_KIE_beta)
 )
 
 write.csv(P450_summary_2, here("data/output/exp_P450/P450_summary_2.csv"), row.names = TRUE)

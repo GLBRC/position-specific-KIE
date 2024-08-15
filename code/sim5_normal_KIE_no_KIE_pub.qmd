@@ -813,9 +813,10 @@ sim5_nls1.2_res_e1_df1$Replicate <- rep(c("A", "B", "C"), each = 5)
   
  #p-value calculation: null hypothesis is rho = 0.5
  #t_test_statistic = (rho - rho_null)/se_rho
+ ##Note that for sim5, lower.tail = TRUE because we are testing the hypothesis that rho is less than 0.5
   nls_resid_t_test = (summary(sim5_nls1.2_e1)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e1)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e1), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e1), lower.tail = TRUE)
   )
 )
 
@@ -952,7 +953,7 @@ hist(sim5_nls2.2_res_e1_df1$Residuals)
   nls_resid_t_test = 
    (summary(sim5_nls2.2_e1)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e1)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e1), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e1), lower.tail = TRUE)
   )
 )
 
@@ -1243,7 +1244,7 @@ hist(sim5_nls1.2_res_e2_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls1.2_e2)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e2)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e2), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e2), lower.tail = TRUE)
   )
 )
 
@@ -1379,7 +1380,7 @@ hist(sim5_nls2.2_res_e2_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho
   nls_resid_t_test = (summary(sim5_nls2.2_e2)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e2)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e2), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e2), lower.tail = TRUE)
   )
 )
 
@@ -1675,7 +1676,7 @@ hist(sim5_nls1.2_res_e3_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls1.2_e3)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e3)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e3), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e3), lower.tail = TRUE)
   )
 )
 
@@ -1818,7 +1819,7 @@ hist(sim5_nls2.2_res_e3_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e3)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e3)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e3), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e3), lower.tail = TRUE)
   )
 )
 
@@ -2121,7 +2122,7 @@ hist(sim5_nls1.2_res_e4_df1$Residuals)
  #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls1.2_e4)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e4)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e4), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e4), lower.tail = TRUE)
   )
 )
 
@@ -2261,7 +2262,7 @@ hist(sim5_nls2.2_res_e4_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e4)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e4)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e4), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e4), lower.tail = TRUE)
   )
 )
 
@@ -2561,7 +2562,7 @@ hist(sim5_nls1.2_res_e5_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho    
   nls_resid_t_test = (summary(sim5_nls1.2_e5)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e5)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e5), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e5), lower.tail = TRUE)
   )
 )
 
@@ -2701,7 +2702,7 @@ hist(sim5_nls2.2_res_e5_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e5)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e5)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e5), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e5), lower.tail = TRUE)
   )
 )
 
@@ -2998,7 +2999,7 @@ hist(sim5_nls1.2_res_e6_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho    
   nls_resid_t_test = (summary(sim5_nls1.2_e6)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e6)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e6), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e6), lower.tail = TRUE)
   )
 )
 
@@ -3138,7 +3139,7 @@ hist(sim5_nls2.2_res_e6_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e6)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e6)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e6), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e6), lower.tail = TRUE)
   )
 )
 
@@ -3435,7 +3436,7 @@ hist(sim5_nls1.2_res_e7_df1$Residuals)
  #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls1.2_e7)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e7)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e7), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e7), lower.tail = TRUE)
   )
 )
 
@@ -3575,7 +3576,7 @@ hist(sim5_nls2.2_res_e7_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e7)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e7)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e7), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e7), lower.tail = TRUE)
   )
 )
 
@@ -3873,7 +3874,7 @@ hist(sim5_nls1.2_res_e8_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho    
   nls_resid_t_test = (summary(sim5_nls1.2_e8)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e8)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e8), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e8), lower.tail = TRUE)
   )
 )
 
@@ -4015,7 +4016,7 @@ hist(sim5_nls2.2_res_e8_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e8)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e8)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e8), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e8), lower.tail = TRUE)
   )
 )
 
@@ -4317,7 +4318,7 @@ hist(sim5_nls1.2_res_e9_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho   
   nls_resid_t_test = (summary(sim5_nls1.2_e9)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls1.2_e9)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e9), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls1.2_e9), lower.tail = TRUE)
   )
 )
 
@@ -4458,7 +4459,7 @@ hist(sim5_nls2.2_res_e9_df1$Residuals)
   #t_test_statistic = (rho - rho_null)/se_rho  
   nls_resid_t_test = (summary(sim5_nls2.2_e9)$coefficients[1, 1] - 0.5)/
     summary(sim5_nls2.2_e9)$coefficients[1, 2],
-  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e9), lower.tail = FALSE)
+  nls_resid_pval = 2*pt(q = nls_resid_t_test, df = df.residual(sim5_nls2.2_e9), lower.tail = TRUE)
   )
 )
 
@@ -5408,9 +5409,10 @@ data <- data %>%
           mean(sim5_tb2$rho, na.rm = TRUE))
   
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
+  ##Note that for sim5, lower.tail = TRUE because we are testing the hypothesis that rho is less than 0.5
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e1_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e1_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e1_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]  
@@ -5546,7 +5548,7 @@ data <- data %>%
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e1_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e1_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e1_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]  
@@ -6084,7 +6086,7 @@ mutate(
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e2_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e2_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e2_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4] 
@@ -6220,7 +6222,7 @@ mutate(
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e2_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e2_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e2_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4] 
@@ -6767,7 +6769,7 @@ mutate(
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e3_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e3_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e3_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]
@@ -6902,7 +6904,7 @@ mutate(
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e3_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e3_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e3_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4] 
@@ -7448,7 +7450,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e4_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e4_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e4_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4] 
@@ -7584,7 +7586,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e4_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e4_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e4_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]
@@ -8124,7 +8126,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e5_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e5_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e5_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4] 
@@ -8260,7 +8262,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e5_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e5_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e5_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]
@@ -8798,7 +8800,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e6_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e6_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e6_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]
@@ -8934,7 +8936,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e6_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e6_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e6_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]
@@ -9474,7 +9476,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e7_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e7_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e7_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]
@@ -9610,7 +9612,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e7_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e7_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e7_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]
@@ -10148,7 +10150,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e8_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e8_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e8_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]
@@ -10284,7 +10286,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e8_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e8_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e8_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]
@@ -10822,7 +10824,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls1.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls1.2)$coefficients[1, 1] - 0.5)/
     summary(nls1.2)$coefficients[1, 2]
-  sim5_e9_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = FALSE)  
+  sim5_e9_rep$pval[(n + i)] = 2*pt(q = t_test, df = df.residual(nls1.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e9_rep$pval_rho_0[(n + i)] = summary(nls1.2)$coefficients[1, 4]  
@@ -10958,7 +10960,7 @@ error_3 <- rsn(n = length(data$N_s), dp = params_3)
   #add p-value for rho (parameter estimated from nls2.2; null hypothesis: rho = 0.5)
   t_test = (summary(nls2.2)$coefficients[1, 1] - 0.5)/
     summary(nls2.2)$coefficients[1, 2]
-  sim5_e9_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = FALSE)  
+  sim5_e9_rep$pval[(2*n + i)] = 2*pt(q = t_test, df = df.residual(nls2.2), lower.tail = TRUE)  
   
   #add p-value for rho where the null hypothesis is rho = 0
   sim5_e9_rep$pval_rho_0[(2*n + i)] = summary(nls2.2)$coefficients[1, 4]

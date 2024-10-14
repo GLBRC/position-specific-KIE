@@ -110,8 +110,7 @@ for (i in 1:nrow(tau_tb3)) {
   rho <- tau_tb3$rho[i]
   
   data <- tibble(
-  f = c(0.7, 0.6, 0.5, 0.4, 0.3,
-        0.2),
+  f = c(0.7, 0.6, 0.5, 0.4, 0.3),
   one_minus_f = 1 - f,
   `-flnf/(1-f)` = -f*log(f)/(1-f),
   epsilon_bulk = -20,
